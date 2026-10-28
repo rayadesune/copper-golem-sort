@@ -1,4 +1,4 @@
-package dev.cgp.coppergolempatch.config;
+package dev.cgp.coppergolemsort.config;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;

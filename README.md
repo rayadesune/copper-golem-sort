@@ -1,10 +1,12 @@
-# Copper Golem Patch
+# Copper Golem Sort
 
-A Paper plugin that gives Copper Golems a **persistent memory** of what each chest holds, and lets them **share it with each other**, so they stop re-checking chests they already know are wrong.
+**English** | [简体中文](README.zh-CN.md) | [![Release](https://img.shields.io/github/v/release/rayadesune/copper-golem-sort)](https://github.com/rayadesune/copper-golem-sort/releases)
 
-> **This is a fork.** It starts from [Craftekture/Copper-Golem-Patch](https://github.com/Craftekture/Copper-Golem-Patch) 0.2.0 (MIT) and adds what a sorted storage wall actually needs: **same-category deposits** (any wool colour into a chest holding wool), **post-deposit tidying** (partial stacks merged, chest sorted by category), and a **single give-up clock** that cannot leave a golem holding an item forever. See [CHANGELOG.md](CHANGELOG.md) for the full list.
+A Paper plugin that gives Copper Golems a **persistent memory** of what each chest holds, lets them **share it with each other**, deposits items **by category** instead of by exact type, and **tidies the chest** afterwards.
 
-![Copper Golem Patch](Images/Copper%20Golem%20Patch.png)
+> **Independently maintained.** This started as a fork of [Craftekture/Copper-Golem-Patch](https://github.com/Craftekture/Copper-Golem-Patch) 0.2.0 (MIT). Upstream has not been touched since 2026-08-04, so this repository is the active line: fixes, features and new-version support all land here. Original design by Craftekture; see [CHANGELOG.md](CHANGELOG.md) for everything added since.
+
+![Copper Golem Sort](Images/copper-golem-sort.png)
 
 ## The problem
 
@@ -44,13 +46,13 @@ Requires **Paper** — the plugin depends on `ItemTransportingEntityValidateTarg
 
 ## Installation
 
-1. Grab `copper-golem-patch-x.y.z.jar` from the [releases](../../releases).
+1. Grab `copper-golem-sort-x.y.z.jar` from the [releases](../../releases).
 2. Drop it into `plugins/`.
-3. Restart the server. `plugins/CopperGolemPatch/config.yml` is generated with defaults that work as-is.
+3. Restart the server. `plugins/CopperGolemSort/config.yml` is generated with defaults that work as-is.
 
 ## Commands
 
-`/cgp` — permission `coppergolempatch.admin` (op by default).
+`/cgp` — permission `coppergolemsort.admin` (op by default).
 
 | Subcommand | Effect |
 |---|---|
@@ -84,6 +86,28 @@ Every setting is documented inline in [config.yml](src/main/resources/config.yml
 Vanilla's rule: a storage chest accepts an item only if it is **empty**, or **already contains that item type**. Free slots alone are not enough — a chest holding a single stone will not accept dirt.
 
 This fork widens that one rule and leaves the rest alone: a chest also accepts an item that belongs to the **same category** as something it already holds (`similar-items.groups`). With `similar-items.enabled: false` you get exact upstream behaviour back — plan roughly one destination chest per item type. With it on, one chest per category is enough, which is usually four or five times fewer chests.
+
+## Upgrading from Copper Golem Patch
+
+0.5.0 renamed the plugin. That is a breaking change for three identifiers:
+
+| What | Before | After |
+|---|---|---|
+| Plugin name / data folder | `CopperGolemPatch` | `CopperGolemSort` |
+| Permission node | `coppergolempatch.admin` | `coppergolemsort.admin` (the old node is still declared, as an alias, so existing permission setups keep working) |
+| PDC key namespace | `coppergolempatch` | `coppergolemsort` |
+
+```bash
+# 1. stop the server
+# 2. remove the old jar
+rm plugins/copper-golem-patch-*.jar
+# 3. carry your configuration over
+mkdir -p plugins/CopperGolemSort
+mv plugins/CopperGolemPatch/config.yml plugins/CopperGolemSort/config.yml
+# 4. drop in the new jar and start
+```
+
+**Golem memory resets**: PDC data written under the old namespace is ignored, so golems start learning from scratch. **No items are lost** — memory is only a cache; the worst case is a few extra trips during the first minutes.
 
 ## Development
 
@@ -154,4 +178,4 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Original work © Craftekture ([upstream](https://github.com/Craftekture/Copper-Golem-Patch)).
+MIT — see [LICENSE](LICENSE). Original work © Craftekture ([upstream](https://github.com/Craftekture/Copper-Golem-Patch)); changes since 0.3.0 © rayadesune.

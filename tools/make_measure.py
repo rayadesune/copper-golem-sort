@@ -7,12 +7,12 @@ if os.path.exists(dst):
     shutil.rmtree(dst)
 shutil.copytree(src, dst)
 
-base = os.path.join(dst, "dev/cgp/coppergolempatch")
+base = os.path.join(dst, "dev/cgp/coppergolemsort")
 listener = os.path.join(base, "listener/TargetValidationListener.java")
 gossip = os.path.join(base, "gossip/GossipTask.java")
-plugin = os.path.join(base, "CopperGolemPatchPlugin.java")
+plugin = os.path.join(base, "CopperGolemSortPlugin.java")
 
-metrics = '''package dev.cgp.coppergolempatch;
+metrics = '''package dev.cgp.coppergolemsort;
 
 /** 临时测量用：只在 measure 构建里存在。 */
 public final class Metrics {
@@ -53,8 +53,8 @@ patch(listener,
       "    @EventHandler\n    public void onValidate(ItemTransportingEntityValidateTargetEvent event) {\n"
       "        long __t = System.nanoTime();\n"
       "        try {\n            handleValidate(event);\n        } finally {\n"
-      "            dev.cgp.coppergolempatch.Metrics.validateCalls++;\n"
-      "            dev.cgp.coppergolempatch.Metrics.validateNanos += System.nanoTime() - __t;\n"
+      "            dev.cgp.coppergolemsort.Metrics.validateCalls++;\n"
+      "            dev.cgp.coppergolemsort.Metrics.validateNanos += System.nanoTime() - __t;\n"
       "        }\n    }\n\n"
       "    private void handleValidate(ItemTransportingEntityValidateTargetEvent event) {",
       "listener.onValidate")
@@ -64,8 +64,8 @@ patch(listener,
       "    public void watchHoldTimeout() {\n"
       "        long __t = System.nanoTime();\n"
       "        try { watchHoldTimeoutInternal(); } finally {\n"
-      "            dev.cgp.coppergolempatch.Metrics.watchdogRuns++;\n"
-      "            dev.cgp.coppergolempatch.Metrics.watchdogNanos += System.nanoTime() - __t;\n"
+      "            dev.cgp.coppergolemsort.Metrics.watchdogRuns++;\n"
+      "            dev.cgp.coppergolemsort.Metrics.watchdogNanos += System.nanoTime() - __t;\n"
       "        }\n    }\n\n"
       "    private void watchHoldTimeoutInternal() {",
       "listener.watchHoldTimeout")
@@ -75,20 +75,20 @@ patch(gossip,
       "    @Override\n    public void run() {\n"
       "        long __t = System.nanoTime();\n"
       "        try { runInternal(); } finally {\n"
-      "            dev.cgp.coppergolempatch.Metrics.gossipRuns++;\n"
-      "            dev.cgp.coppergolempatch.Metrics.gossipNanos += System.nanoTime() - __t;\n"
+      "            dev.cgp.coppergolemsort.Metrics.gossipRuns++;\n"
+      "            dev.cgp.coppergolemsort.Metrics.gossipNanos += System.nanoTime() - __t;\n"
       "        }\n    }\n\n"
       "    private void runInternal() {",
       "gossip.run")
 
 patch(plugin,
-      "        scheduleGossipTask();\n\n        getLogger().info(\"Copper Golem Patch enabled.\");",
+      "        scheduleGossipTask();\n\n        getLogger().info(\"Copper Golem Sort enabled.\");",
       "        scheduleGossipTask();\n\n"
       "        getServer().getScheduler().runTaskTimer(this, () -> {\n"
-      "            getLogger().info(dev.cgp.coppergolempatch.Metrics.report());\n"
-      "            dev.cgp.coppergolempatch.Metrics.reset();\n"
+      "            getLogger().info(dev.cgp.coppergolemsort.Metrics.report());\n"
+      "            dev.cgp.coppergolemsort.Metrics.reset();\n"
       "        }, 600L, 600L);\n\n"
-      "        getLogger().info(\"Copper Golem Patch enabled.\");",
+      "        getLogger().info(\"Copper Golem Sort enabled.\");",
       "plugin.metricsTask")
 
 print("OK: 临时测量源码在", dst)

@@ -1,1 +1,1 @@
-rootProject.name = "copper-golem-patch"
+rootProject.name = "copper-golem-sort"

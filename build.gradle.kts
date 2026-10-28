@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.cgp"
-version = "0.4.2"
+version = "0.5.0"
 
 // --- Supported Minecraft versions ----------------------------------------
 // 1.21.9 is the floor: it is the version that introduced Copper Golems, so

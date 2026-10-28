@@ -1,13 +1,13 @@
-package dev.cgp.coppergolempatch;
+package dev.cgp.coppergolemsort;
 
-import dev.cgp.coppergolempatch.command.CgpCommand;
-import dev.cgp.coppergolempatch.config.PluginConfig;
-import dev.cgp.coppergolempatch.gossip.GossipTask;
-import dev.cgp.coppergolempatch.listener.TargetValidationListener;
-import dev.cgp.coppergolempatch.memory.ChestMemoryCodec;
-import dev.cgp.coppergolempatch.memory.GolemMemoryCache;
-import dev.cgp.coppergolempatch.similar.SimilarItems;
-import dev.cgp.coppergolempatch.tidy.ContainerTidy;
+import dev.cgp.coppergolemsort.command.CgpCommand;
+import dev.cgp.coppergolemsort.config.PluginConfig;
+import dev.cgp.coppergolemsort.gossip.GossipTask;
+import dev.cgp.coppergolemsort.listener.TargetValidationListener;
+import dev.cgp.coppergolemsort.memory.ChestMemoryCodec;
+import dev.cgp.coppergolemsort.memory.GolemMemoryCache;
+import dev.cgp.coppergolemsort.similar.SimilarItems;
+import dev.cgp.coppergolemsort.tidy.ContainerTidy;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.World;
@@ -18,7 +18,7 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class CopperGolemPatchPlugin extends JavaPlugin {
+public final class CopperGolemSortPlugin extends JavaPlugin {
 
     private PluginConfig config;
     private SimilarItems similarItems = SimilarItems.disabled();
@@ -48,12 +48,12 @@ public final class CopperGolemPatchPlugin extends JavaPlugin {
 
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
-            commands.register("cgp", "Copper Golem Patch admin commands", new CgpCommand(this, cache));
+            commands.register("cgp", "Copper Golem Sort admin commands", new CgpCommand(this, cache));
         });
 
         scheduleGossipTask();
 
-        getLogger().info("Copper Golem Patch enabled.");
+        getLogger().info("Copper Golem Sort enabled.");
     }
 
     @Override
@@ -74,7 +74,7 @@ public final class CopperGolemPatchPlugin extends JavaPlugin {
             }
             cache.flush(loaded);
         }
-        getLogger().info("Copper Golem Patch disabled.");
+        getLogger().info("Copper Golem Sort disabled.");
     }
 
     public PluginConfig getPluginConfig() {

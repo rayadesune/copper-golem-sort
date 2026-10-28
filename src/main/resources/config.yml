@@ -1,5 +1,5 @@
 # ======================================================================
-#  Copper Golem Patch - Configuration
+#  Copper Golem Sort - Configuration
 # ======================================================================
 # This plugin gives Copper Golems a persistent memory of chests, and
 # lets them share that knowledge with each other, so they sort items
@@ -143,7 +143,7 @@ tidy:
 # ======================================================================
 
 # =====================================================================
-# Copper Golem Patch 0.3.0 —— 同类物品分组（similar items）
+# Copper Golem Sort 0.3.0 —— 同类物品分组（similar items）
 # =====================================================================
 # 分组严格对齐 Smart Copper Golem(SCG) 的 ALLOWED_ITEM_CATEGORY_TAGS
 # （scg/src/main/kotlin/org/nxy/smartcoppergolem/memory/CopperGolemDeepMemory.kt 第 47-142 行）

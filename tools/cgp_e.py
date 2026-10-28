@@ -1,6 +1,6 @@
 """场景 E：give-up 标记会不会被 TTL 清理掉（0.4.2 的 prune 修复）。
 
-观察点：傀儡的 PDC 里 coppergolempatch:unplaceable_items。
+观察点：傀儡的 PDC 里 coppergolemsort:unplaceable_items。
   giveUp 之后应在 1~3 秒内被 flush 成 1 条；
   再过 TTL(20s)+一轮 gossip(1.5s) 后应该变成空列表。
 不清理的话这个 map 永远非空，revalidateUnplaceable 会永久每 1.5 秒全量扫一遍。
@@ -17,7 +17,7 @@ TARGET = f"{X+3} {Y+1} {Z}"
 SEL = f"x={X},y={Y+1},z={Z},distance=..40"
 GOLEM = f"@e[type=copper_golem,{SEL},limit=1]"
 # 1.21+ 的实体 NBT 里 PDC 叫 BukkitValues，不是老名字 PublicBukkitValues
-PDC_PATH = 'BukkitValues."coppergolempatch:unplaceable_items"'
+PDC_PATH = 'BukkitValues."coppergolemsort:unplaceable_items"'
 
 
 def slot(pos, i):

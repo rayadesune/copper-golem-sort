@@ -1,4 +1,4 @@
-package dev.cgp.coppergolempatch.memory;
+package dev.cgp.coppergolemsort.memory;
 
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import org.bukkit.entity.CopperGolem;

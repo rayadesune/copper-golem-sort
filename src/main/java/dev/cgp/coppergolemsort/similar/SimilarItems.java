@@ -1,4 +1,4 @@
-package dev.cgp.coppergolempatch.similar;
+package dev.cgp.coppergolemsort.similar;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;

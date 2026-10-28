@@ -1,6 +1,6 @@
 import yaml, sys, re
 
-p = "/opt/mc/plugins/CopperGolemPatch/config.yml"
+p = "/opt/mc/plugins/CopperGolemSort/config.yml"
 raw = open(p, encoding="utf-8").read()
 d = yaml.safe_load(raw)
 

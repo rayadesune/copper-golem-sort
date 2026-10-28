@@ -1,4 +1,4 @@
-package dev.cgp.coppergolempatch.memory;
+package dev.cgp.coppergolemsort.memory;
 
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -15,7 +15,7 @@ import java.util.logging.Logger;
 
 public final class ChestMemoryCodec {
 
-    private static final String NAMESPACE = "coppergolempatch";
+    private static final String NAMESPACE = "coppergolemsort";
     private static final NamespacedKey WORLD_KEY = new NamespacedKey(NAMESPACE, "world");
     private static final NamespacedKey X_KEY = new NamespacedKey(NAMESPACE, "x");
     private static final NamespacedKey Y_KEY = new NamespacedKey(NAMESPACE, "y");
@@ -96,7 +96,7 @@ public final class ChestMemoryCodec {
         String item = entryContainer.get(ITEM_KEY, PersistentDataType.STRING);
         Long seenAt = entryContainer.get(SEEN_AT_KEY, PersistentDataType.LONG);
         if (worldId == null || x == null || y == null || z == null || item == null || seenAt == null) {
-            logger.warning("[Copper Golem Patch] Skipping malformed chest memory entry");
+            logger.warning("[Copper Golem Sort] Skipping malformed chest memory entry");
             return null;
         }
         Material firstItemType = parseMaterial(item);
@@ -123,7 +123,7 @@ public final class ChestMemoryCodec {
         String item = entryContainer.get(ITEM_KEY, PersistentDataType.STRING);
         Long markedAt = entryContainer.get(MARKED_AT_KEY, PersistentDataType.LONG);
         if (item == null || markedAt == null) {
-            logger.warning("[Copper Golem Patch] Skipping malformed unplaceable-item entry");
+            logger.warning("[Copper Golem Sort] Skipping malformed unplaceable-item entry");
             return null;
         }
         Material material = parseMaterial(item);
@@ -137,7 +137,7 @@ public final class ChestMemoryCodec {
         try {
             return Material.valueOf(name);
         } catch (IllegalArgumentException e) {
-            logger.warning("[Copper Golem Patch] Skipping entry with unknown material: " + name);
+            logger.warning("[Copper Golem Sort] Skipping entry with unknown material: " + name);
             return null;
         }
     }

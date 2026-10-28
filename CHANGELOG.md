@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.0
+
+The project is now maintained independently as **Copper Golem Sort**: upstream `Craftekture/Copper-Golem-Patch` has not been touched since 2026-08-04. No behaviour changed — this release is the rename, and it **is breaking** for anyone upgrading in place.
+
+### Changed
+
+- **Renamed to Copper Golem Sort.** Repository is now [rayadesune/copper-golem-sort](https://github.com/rayadesune/copper-golem-sort).
+- **Plugin name** `CopperGolemPatch` → `CopperGolemSort`. The data folder moves with it: `plugins/CopperGolemPatch/` → `plugins/CopperGolemSort/`. Move your `config.yml` across before starting, or the plugin generates a fresh one.
+- **Java package** `dev.cgp.coppergolempatch` → `dev.cgp.coppergolemsort`; main class `CopperGolemPatchPlugin` → `CopperGolemSortPlugin`.
+- **Permission** `coppergolempatch.admin` → `coppergolemsort.admin`. The old node is still declared as an alias, so permission groups keep working.
+- **PDC key namespace** `coppergolempatch` → `coppergolemsort`. Golem memory resets once: the old entries are ignored, not deleted. No items are affected — memory is a cache and rebuilds on its own.
+- `/cgp` stays as the command; the chat prefix is now `[Copper Golem Sort]`.
+
+### Added
+
+- `README.zh-CN.md` — full Chinese documentation, linked from both READMEs.
+
 ## 0.4.2
 
 ### Fixed

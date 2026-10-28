@@ -1,6 +1,6 @@
-package dev.cgp.coppergolempatch.tidy;
+package dev.cgp.coppergolemsort.tidy;
 
-import dev.cgp.coppergolempatch.similar.SimilarItems;
+import dev.cgp.coppergolemsort.similar.SimilarItems;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;

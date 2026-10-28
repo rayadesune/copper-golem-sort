@@ -21,13 +21,13 @@ time.sleep(20)   # 足够记录+flush
 
 raw = r.cmd(f"data get entity {GOLEM}")
 print("全量 NBT 长度:", len(raw))
-for kw in ("PublicBukkitValues", "chest_memory", "coppergolempatch", "copper_golem"):
+for kw in ("PublicBukkitValues", "chest_memory", "coppergolemsort", "copper_golem"):
     print(f"  含 {kw}:", kw in raw, "| 次数", raw.count(kw))
 print("前 500 字:", raw[:500].replace("\n", " "))
 
 print("\n--- 试各种路径 ---")
 for path in ('PublicBukkitValues',
-             'PublicBukkitValues."coppergolempatch:chest_memory"',
+             'PublicBukkitValues."coppergolemsort:chest_memory"',
              'BukkitValues'):
     out = r.cmd(f"data get entity {GOLEM} {path}")
     print(f"{path} -> {out[:200]}")

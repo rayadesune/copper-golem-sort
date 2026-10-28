@@ -66,7 +66,7 @@ jobs:
         run: |
           jar=$(ls build/libs/*.jar)
           unzip -o -q "$jar" -d /tmp/cgp
-          major=$(javap -verbose -cp /tmp/cgp dev.cgp.coppergolempatch.CopperGolemPatchPlugin \
+          major=$(javap -verbose -cp /tmp/cgp dev.cgp.coppergolemsort.CopperGolemSortPlugin \
                   | grep -m1 'major version' | tr -dc '0-9')
           echo "class file major version = $major"
           if [ "$major" != "65" ]; then
@@ -76,5 +76,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CopperGolemPatch
+          name: CopperGolemSort
           path: build/libs/*.jar

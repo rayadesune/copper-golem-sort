@@ -1,9 +1,9 @@
-package dev.cgp.coppergolempatch.command;
+package dev.cgp.coppergolemsort.command;
 
-import dev.cgp.coppergolempatch.CopperGolemPatchPlugin;
-import dev.cgp.coppergolempatch.memory.ChestMemory;
-import dev.cgp.coppergolempatch.memory.GolemMemoryCache;
-import dev.cgp.coppergolempatch.memory.MemoryEntry;
+import dev.cgp.coppergolemsort.CopperGolemSortPlugin;
+import dev.cgp.coppergolemsort.memory.ChestMemory;
+import dev.cgp.coppergolemsort.memory.GolemMemoryCache;
+import dev.cgp.coppergolemsort.memory.MemoryEntry;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.entity.CopperGolem;
@@ -17,10 +17,10 @@ import java.util.Optional;
 
 public final class CgpCommand implements BasicCommand {
 
-    private final CopperGolemPatchPlugin plugin;
+    private final CopperGolemSortPlugin plugin;
     private final GolemMemoryCache cache;
 
-    public CgpCommand(CopperGolemPatchPlugin plugin, GolemMemoryCache cache) {
+    public CgpCommand(CopperGolemSortPlugin plugin, GolemMemoryCache cache) {
         this.plugin = plugin;
         this.cache = cache;
     }
@@ -36,7 +36,7 @@ public final class CgpCommand implements BasicCommand {
         switch (args[0].toLowerCase()) {
             case "reload" -> {
                 plugin.reloadPluginConfig();
-                sender.sendMessage("[Copper Golem Patch] Configuration reloaded.");
+                sender.sendMessage("[Copper Golem Sort] Configuration reloaded.");
             }
             case "info" -> handleInfo(stack);
             case "toggle" -> handleToggle(stack);
@@ -54,31 +54,31 @@ public final class CgpCommand implements BasicCommand {
 
     @Override
     public String permission() {
-        return "coppergolempatch.admin";
+        return "coppergolemsort.admin";
     }
 
     private void handleInfo(CommandSourceStack stack) {
         var sender = stack.getSender();
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("[Copper Golem Patch] This command must be run by a player.");
+            sender.sendMessage("[Copper Golem Sort] This command must be run by a player.");
             return;
         }
         Optional<CopperGolem> nearest = findNearestGolem(player);
         if (nearest.isEmpty()) {
-            sender.sendMessage("[Copper Golem Patch] No copper golem within 10 blocks.");
+            sender.sendMessage("[Copper Golem Sort] No copper golem within 10 blocks.");
             return;
         }
         ChestMemory memory = cache.getMemory(nearest.get());
         Collection<MemoryEntry> entries = memory.asMap().values();
         if (entries.isEmpty()) {
-            sender.sendMessage("[Copper Golem Patch] That golem has no chest memory yet.");
+            sender.sendMessage("[Copper Golem Sort] That golem has no chest memory yet.");
             return;
         }
         long oldest = entries.stream().mapToLong(MemoryEntry::lastSeenEpochMillis).min().orElseThrow();
         long newest = entries.stream().mapToLong(MemoryEntry::lastSeenEpochMillis).max().orElseThrow();
         int unplaceableCount = cache.getUnplaceable(nearest.get()).size();
         sender.sendMessage(String.format(
-                "[Copper Golem Patch] %d known chest(s) - oldest seen %s, newest seen %s - %d unplaceable item type(s)",
+                "[Copper Golem Sort] %d known chest(s) - oldest seen %s, newest seen %s - %d unplaceable item type(s)",
                 entries.size(), Instant.ofEpochMilli(oldest), Instant.ofEpochMilli(newest), unplaceableCount));
     }
 
@@ -87,7 +87,7 @@ public final class CgpCommand implements BasicCommand {
         plugin.getConfig().set("enabled", newValue);
         plugin.saveConfig();
         plugin.reloadPluginConfig();
-        stack.getSender().sendMessage("[Copper Golem Patch] enabled = " + newValue);
+        stack.getSender().sendMessage("[Copper Golem Sort] enabled = " + newValue);
     }
 
     private Optional<CopperGolem> findNearestGolem(Player player) {

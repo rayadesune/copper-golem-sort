@@ -1,4 +1,4 @@
-package dev.cgp.coppergolempatch.memory;
+package dev.cgp.coppergolemsort.memory;
 
 import org.bukkit.Material;
 import org.junit.jupiter.api.Test;

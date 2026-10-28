@@ -8,14 +8,14 @@ out = subprocess.run(["jfr", "print", "--events", "jdk.ExecutionSample", "/tmp/c
 blocks = out.split("jdk.ExecutionSample {")[1:]
 total = len(blocks)
 server = [b for b in blocks if '"Server thread"' in b]
-hits = [b for b in server if "dev.cgp.coppergolempatch" in b]
+hits = [b for b in server if "dev.cgp.coppergolemsort" in b]
 
 frames = Counter()
 for b in hits:
     for line in b.splitlines():
         s = line.strip()
-        if "dev.cgp.coppergolempatch" in s:
-            m = re.search(r"dev\.cgp\.coppergolempatch[\w.$]*\.([\w$<>]+)", s)
+        if "dev.cgp.coppergolemsort" in s:
+            m = re.search(r"dev\.cgp\.coppergolemsort[\w.$]*\.([\w$<>]+)", s)
             if m:
                 frames[m.group(0).split(".")[-1]] += 1
 

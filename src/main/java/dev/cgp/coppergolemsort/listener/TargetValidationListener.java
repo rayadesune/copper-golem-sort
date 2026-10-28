@@ -1,14 +1,14 @@
-package dev.cgp.coppergolempatch.listener;
+package dev.cgp.coppergolemsort.listener;
 
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
-import dev.cgp.coppergolempatch.config.PluginConfig;
-import dev.cgp.coppergolempatch.memory.ChestKey;
-import dev.cgp.coppergolempatch.memory.ChestMemory;
-import dev.cgp.coppergolempatch.memory.GolemMemoryCache;
-import dev.cgp.coppergolempatch.memory.MemoryEntry;
-import dev.cgp.coppergolempatch.memory.UnplaceableRegistry;
-import dev.cgp.coppergolempatch.similar.SimilarItems;
-import dev.cgp.coppergolempatch.tidy.ContainerTidy;
+import dev.cgp.coppergolemsort.config.PluginConfig;
+import dev.cgp.coppergolemsort.memory.ChestKey;
+import dev.cgp.coppergolemsort.memory.ChestMemory;
+import dev.cgp.coppergolemsort.memory.GolemMemoryCache;
+import dev.cgp.coppergolemsort.memory.MemoryEntry;
+import dev.cgp.coppergolemsort.memory.UnplaceableRegistry;
+import dev.cgp.coppergolemsort.similar.SimilarItems;
+import dev.cgp.coppergolemsort.tidy.ContainerTidy;
 import io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;

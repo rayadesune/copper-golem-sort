@@ -13,7 +13,7 @@ COPPER = f"{X} {Y+1} {Z}"
 TARGET = f"{X+3} {Y+1} {Z}"
 SEL = f"x={X},y={Y+1},z={Z},distance=..40"
 GOLEM = f"@e[type=copper_golem,{SEL},limit=1]"
-PDC_PATH = 'BukkitValues."coppergolempatch:unplaceable_items"'
+PDC_PATH = 'BukkitValues."coppergolemsort:unplaceable_items"'
 
 
 def hand():

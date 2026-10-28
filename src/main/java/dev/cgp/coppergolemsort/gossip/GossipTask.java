@@ -1,9 +1,9 @@
-package dev.cgp.coppergolempatch.gossip;
+package dev.cgp.coppergolemsort.gossip;
 
-import dev.cgp.coppergolempatch.config.PluginConfig;
-import dev.cgp.coppergolempatch.memory.ChestMemory;
-import dev.cgp.coppergolempatch.memory.GolemMemoryCache;
-import dev.cgp.coppergolempatch.memory.UnplaceableRegistry;
+import dev.cgp.coppergolemsort.config.PluginConfig;
+import dev.cgp.coppergolemsort.memory.ChestMemory;
+import dev.cgp.coppergolemsort.memory.GolemMemoryCache;
+import dev.cgp.coppergolemsort.memory.UnplaceableRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;

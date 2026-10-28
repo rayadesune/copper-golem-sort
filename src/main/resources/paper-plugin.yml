@@ -1,10 +1,15 @@
-name: CopperGolemPatch
+name: CopperGolemSort
 version: '${version}'
-main: dev.cgp.coppergolempatch.CopperGolemPatchPlugin
+main: dev.cgp.coppergolemsort.CopperGolemSortPlugin
 api-version: '${apiVersion}'
-author: Craftekture
-description: "Golems remember which chests hold what, share it with nearby golems, deposit into chests holding a same-category item (all wool colours, all planks, every sword, ...), consolidate the partial stacks left behind, and hand an item back to a copper chest or nearby chest/barrel when nothing will accept it."
+description: "Copper Golems remember which chests hold what, share it with nearby golems, deposit into chests holding a same-category item (all wool colours, all planks, every sword, ...), consolidate the partial stacks left behind, and hand an item back to a copper chest or nearby chest/barrel when nothing will accept it."
+authors: [ rayadesune ]
+contributors: [ Craftekture ]
+website: 'https://github.com/rayadesune/copper-golem-sort'
 permissions:
+  coppergolemsort.admin:
+    description: Allows managing Copper Golem Sort
+    default: op
   coppergolempatch.admin:
-    description: Allows managing Copper Golem Patch
+    description: Legacy alias, kept so existing permission setups keep working after the rename
     default: op
