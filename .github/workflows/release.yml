@@ -36,7 +36,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" build/libs/*.jar \
-            --title "${{ github.ref_name }}" \
-            --generate-notes \
-            --notes "Compatible with Minecraft 1.21.9 -> 26.3 (Paper). Requires Java 21 or newer."
+          TAG="${{ github.ref_name }}"
+          NOTES="Compatible with Minecraft 1.21.9 -> 26.3 (Paper). Requires Java 21 or newer."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # The release may already have been created by hand (backfilling a
+            # historical version, or re-tagging after a rename). Publishing a tag
+            # always fires this workflow, so treat an existing release as normal
+            # and only refresh the artifact instead of failing on the duplicate.
+            echo "release $TAG already exists - uploading assets only"
+            gh release upload "$TAG" build/libs/*.jar --clobber
+          else
+            gh release create "$TAG" build/libs/*.jar \
+              --title "$TAG" \
+              --generate-notes \
+              --notes "$NOTES"
+          fi

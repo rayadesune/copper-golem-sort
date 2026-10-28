@@ -152,7 +152,7 @@ No per-Minecraft-version branches: a single source covers the whole matrix, and 
 ### Cutting a release
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.5.0 && git push origin v0.5.0
 ```
 
 [release.yml](.github/workflows/release.yml) revalidates the full matrix, builds the floor jar, and creates the GitHub release with the jar attached.
