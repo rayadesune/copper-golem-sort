@@ -44,6 +44,22 @@ public final class UnplaceableRegistry {
         return Optional.ofNullable(entries.get(itemType));
     }
 
+    /**
+     * Drops marks that have already expired and reports whether anything went.
+     *
+     * <p>Expiry is judged at read time, so a stale mark never affects a
+     * decision - but it does keep this map non-empty forever, and the periodic
+     * sweep uses "map is empty" as its early exit. Left unpruned, a golem that
+     * gave up once pays for a full chest re-check on every gossip pass for the
+     * rest of its life.
+     */
+    public boolean prune(long ttlSeconds, long nowEpochMillis) {
+        if (entries.isEmpty()) {
+            return false;
+        }
+        return entries.values().removeIf(entry -> entry.isStale(ttlSeconds, nowEpochMillis));
+    }
+
     public Map<Material, UnplaceableEntry> asMap() {
         return Map.copyOf(entries);
     }

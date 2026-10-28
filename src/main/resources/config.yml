@@ -27,14 +27,14 @@ gossip:
   # Set to "false" if you'd rather each golem only learn from its own
   # experience, without sharing anything with the others.
   enabled: true
-
+  
   # Maximum distance (in blocks) between two golems for them to share
   # their knowledge when they pass each other. Increase this if your
   # golems work over a large area and rarely cross paths. Lower it if
   # you have a lot of golems clustered in the same spot (beyond
   # 50-100 nearby golems) and notice the server slowing down.
   radius: 12.0
-
+  
   # How often (in game ticks - 20 ticks = 1 second) golems check
   # whether they're close enough to another golem to share knowledge.
   # A lower value makes sharing happen faster but costs a bit more
@@ -51,7 +51,7 @@ memory:
   # room. Increase this if you have a very large setup (lots of
   # different chests) and golems seem to "forget" chests too quickly.
   max-entries-per-golem: 32
-
+  
   # How long (in seconds) before a golem forgets what it learned about
   # a chest if it never passes by to recheck it. 1800 seconds = 30
   # minutes. You normally don't need to touch this setting.
@@ -67,15 +67,6 @@ memory:
 # item, while remembering (and telling other golems about it via the
 # sharing above) that this item currently has "nowhere to go".
 give-up:
-  # Safety net only: maximum number of different chests the golem can
-  # reject before giving up on an item, even if its search isn't
-  # finished yet. Normally, the golem gives up on its own as soon as it
-  # has finished checking every chest it knows about without finding a
-  # solution - this number is just a guard rail for very large setups
-  # (dozens of chests) to avoid an overly long search. You normally
-  # don't need to change it.
-  after-rejections: 50
-
   # How long (in seconds) an item stays marked as "can't be sorted right
   # now" before the golem tries again.
   #
@@ -88,3 +79,454 @@ give-up:
   # Lowering it makes them retry more often; the cost is one wasted trip
   # per retry, and only for a golem that has nothing else to do anyway.
   unplaceable-ttl-seconds: 20
+  
+  # Where should a give-up item go?
+  #
+  # true  = before dropping anything, the golem looks at copper chests and
+  #         at chests/barrels in the 3x3 chunks around it (already-loaded
+  #         chunks only) and puts the item into whatever can take it.
+  # false = only copper chests are considered, and whatever does not fit
+  #         is dropped on the ground (where it despawns after 5 minutes).
+  #
+  # Copper chests are always tried first, so items normally go back where
+  # they came from and your sorted storage stays untouched.
+  # Furnaces, hoppers, dispensers, brewing stands and shulker boxes are
+  # never used as a fallback: they are machines or carried storage, and
+  # quietly inserting a stack into one would break what you built.
+  fallback-to-any-container: true
+  
+  # How long a golem may hold an item before it gives up and hands the item
+  # back (in ticks, 20 ticks = 1 second).
+  #
+  # Counted from the moment it picks the item up, and NOT restarted when a
+  # chest is evaluated again - restarting on every evaluation is exactly
+  # what used to let a golem re-check one rejected chest forever.
+  #
+  # This is the short deadline, and it only applies while no chest has
+  # accepted the carry. The moment one does, the deadline becomes 4x this
+  # value (120 s), which is what rescues a golem whose "usable" chest it
+  # can never actually walk to. So a golem with nowhere to put the item
+  # recovers in 30 seconds, one with an unreachable target in at most 2
+  # minutes.
+  #
+  # 600 = 30 seconds, comfortably longer than the walk to any chest within
+  # vanilla's 65-block search radius. Raise it if your golems make very
+  # long trips; lower it if you want stuck golems to recover faster.
+  hold-timeout-ticks: 600
+# ======================================================================
+#  tidy —— 投放后自动整理（本服定制）
+#  ----------------------------------------------------------------------
+#  为什么需要：原版铜傀儡每趟最多搬 16 件，且只往"最靠前的可用槽"塞，
+#  不会把 16 并进后面那个 40/64 的同类堆。所以 64 件投 4 趟会变成
+#  4 个 16 而不是 1 个 64，箱子很快被碎片占满、之后就没地方放了。
+#  这里在它投放完成后把容器内容合并成满堆，并可按分类排序。
+#
+#  作用范围：只处理【铜傀儡判定可以投放的箱子】，你手动摆的箱子完全不动。
+#  安全限制：有人正在查看该箱子时跳过，避免和拖拽中的物品冲突。
+# ======================================================================
+tidy:
+  enabled: true
+  merge: true # 合并同类碎片：4×16 -> 1×64
+  sort: true # 合并后按 similar-items 的分组排序，同组物品相邻
+  delay-ticks: 40 # 投放后等 40 tick(2秒) 再整理，避开原版插入过程
+  skip-viewed: true # 有人打开该箱子时跳过（不要改成 false）
+  debug: false # true 时把每次整理的"堆数变化"打进日志
+
+
+# ======================================================================
+#  similar-items —— 同类物品匹配（0.3.0 新增，本服定制）
+#  ----------------------------------------------------------------------
+#  原版规则：目标箱必须【完全空】或【已存在同一种物品 ID】才允许投放。
+#  开启本段后，只要手持物品与箱内已有物品命中【同一个分组】，也允许投放。
+#  分组按【类型】划分（所有台阶 / 所有楼梯 / 所有剑 / 所有镐...），不按材质。
+#  下面 76 组来自 Smart Copper Golem 的分组清单，并已按 26.3 实际 tag 校正。
+# ======================================================================
+
+# =====================================================================
+# Copper Golem Patch 0.3.0 —— 同类物品分组（similar items）
+# =====================================================================
+# 分组严格对齐 Smart Copper Golem(SCG) 的 ALLOWED_ITEM_CATEGORY_TAGS
+# （scg/src/main/kotlin/org/nxy/smartcoppergolem/memory/CopperGolemDeepMemory.kt 第 47-142 行）
+#
+# SCG 共 52 个原版标签 + 34 个 Fabric 专有标签，本配置处理方式：
+#   - 52 个原版标签：全部 1:1 保留，一组不删
+#   - 34 个 Fabric 标签：能映射到原版标签的直接映射（如 CONCRETES -> #concrete），
+#     原版没有对应标签的改为手写物品 ID（玻璃、唱片、水桶、药水、芽、砂岩、高花、生熟食物）
+#
+# 分类原则（与你确认的一致）：按【类型】分组，不按【材质】分组。
+#   即：所有台阶一组、所有楼梯一组、所有剑一组、所有镐一组。
+#   SCG 里唯一带材质色彩的是 wooden_* 系列（木质门/活板门/栅栏等），
+#   这是 SCG 原样，且其中"木楼梯/木台阶"被"所有楼梯/所有台阶"完全包含（等于失效）。
+#
+# 写法：
+#   "#minecraft:xxx" -> 原版物品 tag，运行时解析（26.4 新增物品自动跟随）
+#   "minecraft:xxx"  -> 具体物品 ID
+#   tag 解析失败     -> 启动日志明确列出组名，不会静默失效
+#
+# 匹配规则：手持物品 与 目标箱已有物品 命中【同一分组】-> 允许投放。
+# 硬性前提：目标箱必须还有空槽（require-empty-slot），否则傀儡会走过去放不下、无限往返。
+# =====================================================================
+
+similar-items:
+  enabled: true
+  
+  # 目标箱必须剩至少一个空槽才允许同类投放。强烈建议保持 true。
+  require-empty-slot: true
+  
+  # true 时每次决策打印一行日志（手持物 / 箱子 / 命中组），排查用。平时关闭。
+  debug: false
+  
+  groups:
+  - name: 羊毛
+    items:
+    - '#minecraft:wool'
+  - name: 羊毛地毯
+    items:
+    - '#minecraft:wool_carpets'
+  - name: 羊毛台阶
+    items:
+    - '#minecraft:wool_slabs'
+  - name: 羊毛楼梯
+    items:
+    - '#minecraft:wool_stairs'
+  - name: 软垫
+    items:
+    - '#minecraft:cushions'
+  - name: 床
+    items:
+    - '#minecraft:beds'
+  - name: 旗帜
+    items:
+    - '#minecraft:banners'
+  - name: 蜡烛
+    items:
+    - '#minecraft:candles'
+  - name: 陶瓦
+    items:
+    - '#minecraft:terracotta'
+  - name: 混凝土
+    items:
+    - '#minecraft:concrete'
+  - name: 混凝土粉末
+    items:
+    - '#minecraft:concrete_powders'
+  - name: 带釉陶瓦
+    items:
+    - '#minecraft:glazed_terracotta'
+  - name: 潜影盒
+    items:
+    - '#minecraft:shulker_boxes'
+  - name: 收纳袋
+    items:
+    - '#minecraft:bundles'
+  - name: 挽具
+    items:
+    - '#minecraft:harnesses'
+  - name: 染料
+    items:
+    - '#minecraft:dyes'
+    - minecraft:bone_meal
+    - minecraft:ink_sac
+    - minecraft:lapis_lazuli
+    - minecraft:cocoa_beans
+  - name: 玻璃
+    items:
+    - minecraft:glass
+    - minecraft:glass_pane
+    - minecraft:white_stained_glass
+    - minecraft:white_stained_glass_pane
+    - minecraft:orange_stained_glass
+    - minecraft:orange_stained_glass_pane
+    - minecraft:magenta_stained_glass
+    - minecraft:magenta_stained_glass_pane
+    - minecraft:light_blue_stained_glass
+    - minecraft:light_blue_stained_glass_pane
+    - minecraft:yellow_stained_glass
+    - minecraft:yellow_stained_glass_pane
+    - minecraft:lime_stained_glass
+    - minecraft:lime_stained_glass_pane
+    - minecraft:pink_stained_glass
+    - minecraft:pink_stained_glass_pane
+    - minecraft:gray_stained_glass
+    - minecraft:gray_stained_glass_pane
+    - minecraft:light_gray_stained_glass
+    - minecraft:light_gray_stained_glass_pane
+    - minecraft:cyan_stained_glass
+    - minecraft:cyan_stained_glass_pane
+    - minecraft:purple_stained_glass
+    - minecraft:purple_stained_glass_pane
+    - minecraft:blue_stained_glass
+    - minecraft:blue_stained_glass_pane
+    - minecraft:brown_stained_glass
+    - minecraft:brown_stained_glass_pane
+    - minecraft:green_stained_glass
+    - minecraft:green_stained_glass_pane
+    - minecraft:red_stained_glass
+    - minecraft:red_stained_glass_pane
+    - minecraft:black_stained_glass
+    - minecraft:black_stained_glass_pane
+  - name: 木板
+    items:
+    - '#minecraft:planks'
+  - name: 原木
+    items:
+    - '#minecraft:logs'
+  - name: 树苗
+    items:
+    - '#minecraft:saplings'
+  - name: 树叶
+    items:
+    - '#minecraft:leaves'
+  - name: 竹块
+    items:
+    - '#minecraft:bamboo_blocks'
+  - name: 木按钮
+    items:
+    - '#minecraft:wooden_buttons'
+  - name: 石按钮
+    items:
+    - '#minecraft:stone_buttons'
+  - name: 木压力板
+    items:
+    - '#minecraft:wooden_pressure_plates'
+  - name: 木门
+    items:
+    - '#minecraft:wooden_doors'
+  - name: 木活板门
+    items:
+    - '#minecraft:wooden_trapdoors'
+  - name: 木楼梯
+    items:
+    - '#minecraft:wooden_stairs'
+  - name: 木台阶
+    items:
+    - '#minecraft:wooden_slabs'
+  - name: 木栅栏
+    items:
+    - '#minecraft:wooden_fences'
+  - name: 木栅栏门
+    items:
+    - '#minecraft:fence_gates'
+  - name: 悬挂木牌
+    items:
+    - '#minecraft:hanging_signs'
+  - name: 木架
+    items:
+    - '#minecraft:wooden_shelves'
+  - name: 所有台阶
+    items:
+    - '#minecraft:slabs'
+  - name: 所有楼梯
+    items:
+    - '#minecraft:stairs'
+  - name: 所有墙
+    items:
+    - '#minecraft:walls'
+  - name: 石砖
+    items:
+    - '#minecraft:stone_bricks'
+  - name: 铁砧
+    items:
+    - '#minecraft:anvil'
+  - name: 铁轨
+    items:
+    - '#minecraft:rails'
+  - name: 砂岩块
+    items:
+    - minecraft:sandstone
+    - minecraft:cut_sandstone
+    - minecraft:chiseled_sandstone
+    - minecraft:smooth_sandstone
+  - name: 红砂岩块
+    items:
+    - minecraft:red_sandstone
+    - minecraft:cut_red_sandstone
+    - minecraft:chiseled_red_sandstone
+    - minecraft:smooth_red_sandstone
+  - name: 矿石
+    items:
+    - '#minecraft:ores'
+  - name: 铜块
+    items:
+    - '#minecraft:copper'
+  - name: 铜箱
+    items:
+    - '#minecraft:copper_chests'
+  - name: 避雷针
+    items:
+    - '#minecraft:lightning_rods'
+  - name: 铜傀儡雕像
+    items:
+    - '#minecraft:copper_golem_statues'
+  - name: 灯笼
+    items:
+    - '#minecraft:lanterns'
+  - name: 剑
+    items:
+    - '#minecraft:swords'
+  - name: 斧
+    items:
+    - '#minecraft:axes'
+  - name: 镐
+    items:
+    - '#minecraft:pickaxes'
+  - name: 锹
+    items:
+    - '#minecraft:shovels'
+  - name: 锄
+    items:
+    - '#minecraft:hoes'
+  - name: 矛
+    items:
+    - '#minecraft:spears'
+  - name: 头盔
+    items:
+    - '#minecraft:head_armor'
+  - name: 胸甲
+    items:
+    - '#minecraft:chest_armor'
+  - name: 护腿
+    items:
+    - '#minecraft:leg_armor'
+  - name: 靴子
+    items:
+    - '#minecraft:foot_armor'
+  - name: 头颅
+    items:
+    - '#minecraft:skulls'
+  - name: 箭
+    items:
+    - '#minecraft:arrows'
+  - name: 煤炭
+    items:
+    - '#minecraft:coals'
+  - name: 蛋
+    items:
+    - '#minecraft:eggs'
+  - name: 书与笔
+    items:
+    - '#minecraft:lectern_books'
+  - name: 书籍
+    items:
+    - '#minecraft:bookshelf_books'
+  - name: 陶片
+    items:
+    - '#minecraft:decorated_pot_sherds'
+  - name: 船
+    items:
+    - '#minecraft:boats'
+  - name: 唱片
+    items:
+    - minecraft:music_disc_13
+    - minecraft:music_disc_cat
+    - minecraft:music_disc_blocks
+    - minecraft:music_disc_chirp
+    - minecraft:music_disc_far
+    - minecraft:music_disc_mall
+    - minecraft:music_disc_mellohi
+    - minecraft:music_disc_stal
+    - minecraft:music_disc_strad
+    - minecraft:music_disc_ward
+    - minecraft:music_disc_11
+    - minecraft:music_disc_wait
+    - minecraft:music_disc_otherside
+    - minecraft:music_disc_5
+    - minecraft:music_disc_pigstep
+    - minecraft:music_disc_relic
+    - minecraft:music_disc_creator
+    - minecraft:music_disc_creator_music_box
+    - minecraft:music_disc_precipice
+    - minecraft:music_disc_bounce
+    - minecraft:music_disc_lava_chicken
+    - minecraft:music_disc_tears
+  - name: 水桶
+    items:
+    - minecraft:water_bucket
+    - minecraft:cod_bucket
+    - minecraft:salmon_bucket
+    - minecraft:pufferfish_bucket
+    - minecraft:tropical_fish_bucket
+    - minecraft:axolotl_bucket
+    - minecraft:tadpole_bucket
+    - minecraft:sulfur_cube_bucket
+  - name: 药水
+    items:
+    - minecraft:potion
+    - minecraft:splash_potion
+    - minecraft:lingering_potion
+  - name: 紫水晶芽
+    items:
+    - minecraft:small_amethyst_bud
+    - minecraft:medium_amethyst_bud
+    - minecraft:large_amethyst_bud
+    - minecraft:amethyst_cluster
+  - name: 小花
+    items:
+    - '#minecraft:small_flowers'
+  - name: 高花
+    items:
+    - minecraft:sunflower
+    - minecraft:lilac
+    - minecraft:rose_bush
+    - minecraft:peony
+  - name: 生肉
+    items:
+    - minecraft:beef
+    - minecraft:porkchop
+    - minecraft:chicken
+    - minecraft:mutton
+    - minecraft:rabbit
+  - name: 熟肉
+    items:
+    - minecraft:cooked_beef
+    - minecraft:cooked_porkchop
+    - minecraft:cooked_chicken
+    - minecraft:cooked_mutton
+    - minecraft:cooked_rabbit
+  - name: 生鱼
+    items:
+    - minecraft:cod
+    - minecraft:salmon
+    - minecraft:tropical_fish
+    - minecraft:pufferfish
+  - name: 熟鱼
+    items:
+    - minecraft:cooked_cod
+    - minecraft:cooked_salmon
+  - name: 蔬菜
+    items:
+    - minecraft:carrot
+    - minecraft:potato
+    - minecraft:beetroot
+    - minecraft:baked_potato
+    - minecraft:poisonous_potato
+    - minecraft:golden_carrot
+
+# =============================================================
+# 以下 9 组可选，默认注释掉。**都不是 SCG 的分组**，是我扫 26.3 原版
+# 物品 tag（共 236 个）时额外挑出来的，SCG 的 86 项里没有这些。
+# 没启用各有原因：分类偏粗（蘑菇/土/沙/草方块）、价值差大（粒、铁栏杆、
+# 锁链）、与已启用组重叠（下界木质）、用途互斥（其他桶）。
+# 想去掉行首的 "# " 即可启用。
+# =============================================================
+# - name: "蘑菇"
+#   items: ["#minecraft:mushrooms"]               # 3
+# - name: "土"
+#   items: ["#minecraft:dirt"]                    # 3
+# - name: "沙"
+#   items: ["#minecraft:sand"]                    # 3
+# - name: "草方块"
+#   items: ["#minecraft:grass_blocks"]            # 3
+# - name: "下界木质"
+#   items: ["#minecraft:non_flammable_wood"]      # 32
+# - name: "粒"
+#   items: ["#minecraft:metal_nuggets"]           # 3（铜粒/铁粒/金粒，价值差 20 倍）
+# - name: "铁栏杆"
+#   items: ["#minecraft:bars"]                    # 9（含铜栏杆）
+# - name: "锁链"
+#   items: ["#minecraft:chains"]                  # 9（含铜锁链）
+# - name: "其他桶"
+#   items:
+#     - "minecraft:lava_bucket"
+#     - "minecraft:milk_bucket"
+#     - "minecraft:powder_snow_bucket"            # 3

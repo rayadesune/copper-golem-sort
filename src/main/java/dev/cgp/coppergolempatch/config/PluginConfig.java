@@ -10,8 +10,9 @@ public record PluginConfig(
         long gossipIntervalTicks,
         int maxEntriesPerGolem,
         long entryTtlSeconds,
-        int giveUpAfterRejections,
-        long unplaceableTtlSeconds
+        long unplaceableTtlSeconds,
+        boolean giveUpFallbackToAnyContainer,
+        long giveUpHoldTimeoutTicks
 ) {
 
     public static PluginConfig load(JavaPlugin plugin) {
@@ -42,12 +43,6 @@ public record PluginConfig(
             entryTtlSeconds = 1800;
         }
 
-        int giveUpAfterRejections = config.getInt("give-up.after-rejections", 50);
-        if (giveUpAfterRejections <= 0) {
-            plugin.getLogger().warning("give-up.after-rejections must be > 0, using default 50");
-            giveUpAfterRejections = 50;
-        }
-
         // This doubles as the retry clock, so it has to stay short. A golem
         // that has given up on every type it knows stops picking anything up;
         // with nothing in hand vanilla only ever offers it copper chests, so
@@ -61,6 +56,22 @@ public record PluginConfig(
             unplaceableTtlSeconds = 20;
         }
 
+        // The soft stuck-carry deadline, in ticks. Measured from the moment the
+        // hand picked the item up and never refreshed afterwards - refreshing it
+        // on every evaluation is what used to make a golem that kept re-checking
+        // one rejected chest hold the item forever.
+        //
+        // It only applies while no chest has accepted this carry. As soon as one
+        // does, the deadline becomes this value x4 (the hard cap in
+        // watchHoldTimeout), which covers "chest accepted but unreachable".
+        // 600 ticks = 30s, comfortably longer than the trip to any chest within
+        // vanilla's 65-block search radius; the hard cap is then 120s.
+        long giveUpHoldTimeoutTicks = config.getLong("give-up.hold-timeout-ticks", 600);
+        if (giveUpHoldTimeoutTicks < 40) {
+            plugin.getLogger().warning("give-up.hold-timeout-ticks must be >= 40, using default 600");
+            giveUpHoldTimeoutTicks = 600;
+        }
+
         return new PluginConfig(
                 config.getBoolean("enabled", true),
                 config.getBoolean("gossip.enabled", true),
@@ -68,8 +79,9 @@ public record PluginConfig(
                 gossipIntervalTicks,
                 maxEntriesPerGolem,
                 entryTtlSeconds,
-                giveUpAfterRejections,
-                unplaceableTtlSeconds
+                unplaceableTtlSeconds,
+                config.getBoolean("give-up.fallback-to-any-container", true),
+                giveUpHoldTimeoutTicks
         );
     }
 }

@@ -6,6 +6,8 @@ import dev.cgp.coppergolempatch.gossip.GossipTask;
 import dev.cgp.coppergolempatch.listener.TargetValidationListener;
 import dev.cgp.coppergolempatch.memory.ChestMemoryCodec;
 import dev.cgp.coppergolempatch.memory.GolemMemoryCache;
+import dev.cgp.coppergolempatch.similar.SimilarItems;
+import dev.cgp.coppergolempatch.tidy.ContainerTidy;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.World;
@@ -19,19 +21,30 @@ import java.util.List;
 public final class CopperGolemPatchPlugin extends JavaPlugin {
 
     private PluginConfig config;
+    private SimilarItems similarItems = SimilarItems.disabled();
+    private ContainerTidy tidy = ContainerTidy.disabled();
     private GolemMemoryCache cache;
     private BukkitTask gossipTask;
+    private BukkitTask holdWatchdogTask;
+    private TargetValidationListener targetListener;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         config = PluginConfig.load(this);
+        similarItems = SimilarItems.load(this, getLogger());
+        tidy = ContainerTidy.load(this, () -> similarItems);
         ChestMemoryCodec codec = new ChestMemoryCodec(this, getLogger());
         cache = new GolemMemoryCache(codec);
         getServer().getPluginManager().registerEvents(cache, this);
 
-        getServer().getPluginManager().registerEvents(
-                new TargetValidationListener(this, () -> config, cache), this);
+        targetListener = new TargetValidationListener(this, () -> config, () -> similarItems, () -> tidy, cache);
+        getServer().getPluginManager().registerEvents(targetListener, this);
+
+        // Once a second: ends a carry whose search dried up before any further
+        // validation event could trigger the normal give-up path.
+        holdWatchdogTask = getServer().getScheduler()
+                .runTaskTimer(this, targetListener::watchHoldTimeout, 20L, 20L);
 
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
@@ -48,6 +61,12 @@ public final class CopperGolemPatchPlugin extends JavaPlugin {
         if (gossipTask != null) {
             gossipTask.cancel();
         }
+        if (holdWatchdogTask != null) {
+            holdWatchdogTask.cancel();
+        }
+        if (tidy != null) {
+            tidy.shutdown();
+        }
         if (cache != null) {
             List<CopperGolem> loaded = new ArrayList<>();
             for (World world : getServer().getWorlds()) {
@@ -62,8 +81,17 @@ public final class CopperGolemPatchPlugin extends JavaPlugin {
         return config;
     }
 
+    public SimilarItems getSimilarItems() {
+        return similarItems;
+    }
+
     public void reloadPluginConfig() {
         config = PluginConfig.load(this);
+        similarItems = SimilarItems.load(this, getLogger());
+        if (tidy != null) {
+            tidy.shutdown();
+        }
+        tidy = ContainerTidy.load(this, () -> similarItems);
         if (gossipTask != null) {
             gossipTask.cancel();
         }

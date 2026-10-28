@@ -98,6 +98,13 @@ public final class GossipTask implements Runnable {
 
     private void revalidateUnplaceable(CopperGolem golem) {
         UnplaceableRegistry unplaceable = cache.getUnplaceable(golem);
+        // Expired marks are dropped here rather than left for the read-time
+        // check below: the empty-map test just underneath is this whole method's
+        // early exit, and a map that never empties means a golem which gave up
+        // once keeps running a full chest scan on every pass, forever.
+        if (unplaceable.prune(config.get().unplaceableTtlSeconds(), System.currentTimeMillis())) {
+            cache.markUnplaceableDirty(golem);
+        }
         if (unplaceable.asMap().isEmpty()) {
             return;
         }
@@ -118,6 +125,13 @@ public final class GossipTask implements Runnable {
         UUID worldId = world.getUID();
         return memory.asMap().keySet().stream()
                 .filter(key -> key.worldId().equals(worldId))
+                // Must come before any Block access: getBlockAt is lazy, but both
+                // getType() and getState() force a synchronous chunk load on the
+                // server thread. A remembered chest is up to 65 blocks away, which
+                // is further than the simulation distance (4 chunks) and can be
+                // outside the view distance (6 chunks) too - i.e. a golem can
+                // easily remember a chest in a chunk that is no longer loaded.
+                .filter(key -> world.isChunkLoaded(key.x() >> 4, key.z() >> 4))
                 .map(key -> world.getBlockAt(key.x(), key.y(), key.z()))
                 .filter(block -> !isCopperChest(block.getType()))
                 .map(Block::getState)

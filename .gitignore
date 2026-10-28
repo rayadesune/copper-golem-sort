@@ -18,3 +18,11 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Python scratch (tools/)
+__pycache__/
+*.pyc
+
+# Built jars are release artifacts, not source
+*.jar
+!gradle/wrapper/gradle-wrapper.jar

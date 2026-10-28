@@ -2,6 +2,8 @@
 
 A Paper plugin that gives Copper Golems a **persistent memory** of what each chest holds, and lets them **share it with each other**, so they stop re-checking chests they already know are wrong.
 
+> **This is a fork.** It starts from [Craftekture/Copper-Golem-Patch](https://github.com/Craftekture/Copper-Golem-Patch) 0.2.0 (MIT) and adds what a sorted storage wall actually needs: **same-category deposits** (any wool colour into a chest holding wool), **post-deposit tidying** (partial stacks merged, chest sorted by category), and a **single give-up clock** that cannot leave a golem holding an item forever. See [CHANGELOG.md](CHANGELOG.md) for the full list.
+
 ![Copper Golem Patch](Images/Copper%20Golem%20Patch.png)
 
 ## The problem
@@ -15,7 +17,9 @@ In vanilla, a copper golem re-evaluates every chest on every pass: it walks over
 | **Per-golem memory** | Each golem remembers what it saw in each chest, persisted in its PDC (survives restarts). |
 | **Gossip** | Two golems passing each other exchange memories — a golem knows about chests it never visited. |
 | **Informed skipping** | A chest known not to match is rejected without the walk and the examine. |
-| **Stall breaker** | An item nobody accepts is put back in a copper chest and marked "unplaceable", shared by gossip, and retried automatically once room frees up. |
+| **Same-category deposits** | A chest holding any wool colour accepts any other wool colour, a chest of oak planks accepts spruce — one destination chest per *category* instead of one per item type. 76 groups cover 986 items out of the box. |
+| **Post-deposit tidying** | 2 s after a deposit the chest is compacted: partial stacks of the same item merged into full ones, then stacks ordered by category. Chests you have open are skipped. |
+| **Bounded stall breaker** | An item nothing accepts goes back to a copper chest, or a nearby chest/barrel, or is dropped at the golem's feet (with a log line). Soft deadline 30 s, hard cap 120 s. |
 | **Deprioritising** | If the first slot of a copper chest holds an unplaceable item, it is swapped with the first sortable one — otherwise it would block everything behind it. |
 
 ![Memory](Images/MEMORY.png)
@@ -30,6 +34,7 @@ In vanilla, a copper golem re-evaluates every chest on every pass: it walks over
 | 1.21.11 | 21 | ✅ |
 | 26.1.2 | 25 | ✅ |
 | 26.2 | 25 | ✅ |
+| 26.3 | 25 | ✅ (verified on a live 26.3 server) |
 
 **1.21.9 is the absolute floor**: it is the version that introduced Copper Golems, so there is nothing to patch before it.
 
@@ -65,14 +70,20 @@ Every setting is documented inline in [config.yml](src/main/resources/config.yml
 | `gossip.interval-ticks` | `30` | Check frequency (20 ticks = 1 s). |
 | `memory.max-entries-per-golem` | `32` | Chests remembered per golem. |
 | `memory.entry-ttl-seconds` | `1800` | Forget a chest that is never revisited. |
-| `give-up.after-rejections` | `50` | Guard rail on how long a search may run. |
+| `similar-items.enabled` | `true` | Same-category deposits. `groups` holds the categories; a chest accepts an item from the same group as what it already stores. |
+| `similar-items.require-empty-slot` | `true` | Only deposit into a chest that still has a free slot — two different items cannot stack, so a full chest would mean a wasted trip. |
+| `tidy.enabled` | `true` | Post-deposit compaction. `merge` folds partial stacks together, `sort` orders by category. |
+| `tidy.delay-ticks` | `40` | Wait before tidying, so vanilla's own insertion finishes first. |
+| `tidy.skip-viewed` | `true` | Skip chests a player has open. **Do not set this to `false`** — it races with dragging items around. |
 | `give-up.unplaceable-ttl-seconds` | `20` | How long an item stays marked "unplaceable" — this doubles as the retry clock, and it is what lets a stuck golem discover a chest placed after the fact. |
+| `give-up.fallback-to-any-container` | `true` | When no copper chest can take the item back, try nearby chests and barrels before dropping it. |
+| `give-up.hold-timeout-ticks` | `600` | Soft deadline (30 s) for a golem holding an item no chest accepted. The hard cap is 4× this. |
 
 ## Good to know
 
-A storage chest accepts an item only if it is **empty**, or **already contains that item type**. Free slots alone are not enough — a chest holding a single stone will not accept dirt.
+Vanilla's rule: a storage chest accepts an item only if it is **empty**, or **already contains that item type**. Free slots alone are not enough — a chest holding a single stone will not accept dirt.
 
-This is vanilla Minecraft's own rule, not something this plugin adds; you can confirm it with `/cgp toggle`. In practice: plan roughly **one destination chest per item type** you want sorted. With fewer chests than item types, the leftovers stay in the copper chests, plugin or not.
+This fork widens that one rule and leaves the rest alone: a chest also accepts an item that belongs to the **same category** as something it already holds (`similar-items.groups`). With `similar-items.enabled: false` you get exact upstream behaviour back — plan roughly one destination chest per item type. With it on, one chest per category is enough, which is usually four or five times fewer chests.
 
 ## Development
 
@@ -124,10 +135,23 @@ git tag v0.2.0 && git push origin v0.2.0
 
 Bump `version` in [build.gradle.kts](build.gradle.kts) **before** tagging — the tag does not set it, and the jar would otherwise ship claiming the previous version.
 
+### End-to-end scripts
+
+`tools/` holds the RCON-driven harness used to validate behaviour on a real server — the kind of thing a unit test cannot see:
+
+| Script | Purpose |
+|---|---|
+| `tools/cgp_m.py` | Four-scenario matrix: normal deposit + tidy, total rejection, fallback to a nearby chest, nowhere to go. Asserts item conservation across the whole run. |
+| `tools/cgp_e.py` / `tools/cgp_f.py` | "Unplaceable" mark lifecycle: TTL expiry, and early release when a reachable chest frees up. |
+| `tools/cleanup.py`, `tools/health.py` | Wipe the test area, then verify no leftover entities, dropped items or force-loaded chunks. |
+| `tools/pack.py` | Legacy repacker: rebuilds a jar from compiled classes when Gradle is not available (a bare server with only a JDK). Gradle is the normal path. |
+
+They talk to the server over RCON and assume a scratch area far from spawn; read the constants at the top before running.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-[MIT](LICENSE)
+MIT — see [LICENSE](LICENSE). Original work © Craftekture ([upstream](https://github.com/Craftekture/Copper-Golem-Patch)).
