@@ -10,9 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  # Compile + test against every version in the matrix. The point is not to
-  # produce five artifacts, but to catch straight away if a recent Paper API
-  # breaks the source (changed signature, removed API).
+  # Compile + test against every version in the matrix. The matrix has one
+  # entry since 0.6.0 (26.3 is the floor and the ceiling); the job is kept
+  # because a second entry will come back the moment a newer Paper API needs
+  # verifying, and because the job name is a required status check.
   compatibility:
     # NOTE: this job name becomes a required status check name in the branch
     # ruleset. Renaming it silently invalidates that requirement.
@@ -21,12 +22,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ['1.21.9', '1.21.10', '1.21.11', '26.1.2', '26.2', '26.3']
+        minecraft: ['26.3']
     steps:
       - uses: actions/checkout@v4
 
-      # JDK 25 even when targeting Java 21 bytecode: reading the paper-api
-      # 26.x jars (class file 69) requires it.
+      # JDK 25 is mandatory, not just convenient: paper-api 26.x is class file
+      # 69 and the plugin emits Java 25 bytecode.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -44,8 +45,7 @@ jobs:
           name: tests-${{ matrix.minecraft }}
           path: build/reports/tests/test
 
-  # The distributable artifact: built against the floor, hence Java 21
-  # bytecode, hence loadable across the whole 1.21.9 -> 26.2 range.
+  # The distributable artifact: built against 26.3, hence Java 25 bytecode.
   artifact:
     # NOTE: see the naming warning on the job above.
     name: Distributable jar
@@ -62,15 +62,15 @@ jobs:
       - name: Build against the floor version
         run: ./gradlew build
 
-      - name: Check the bytecode really is Java 21
+      - name: Check the bytecode really is Java 25
         run: |
           jar=$(ls build/libs/*.jar)
           unzip -o -q "$jar" -d /tmp/cgp
           major=$(javap -verbose -cp /tmp/cgp dev.cgp.coppergolemsort.CopperGolemSortPlugin \
                   | grep -m1 'major version' | tr -dc '0-9')
           echo "class file major version = $major"
-          if [ "$major" != "65" ]; then
-            echo "::error::Bytecode $major instead of 65 (Java 21) - the jar would not load on 1.21.9-1.21.11"
+          if [ "$major" != "69" ]; then
+            echo "::error::Bytecode $major instead of 69 (Java 25) - paper-api 26.3 and the build both target Java 25"
             exit 1
           fi
 

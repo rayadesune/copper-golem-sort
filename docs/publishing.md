@@ -24,7 +24,7 @@
 ### Modrinth
 
 1. 登录 <https://modrinth.com>，头像 → **Create a project**。
-2. Project type **Plugin**，Loaders 只勾 **Paper**，Game versions 勾 `1.21.9`–`26.3`，License **MIT**，Source 填 `https://github.com/rayadesune/copper-golem-sort`。
+2. Project type **Plugin**，Loaders 只勾 **Paper**，Game versions 勾 `26.3`，License **MIT**，Source 填 `https://github.com/rayadesune/copper-golem-sort`。
 3. 头像 → **Settings** → **Authorization** → **Personal access tokens** → Create，权限勾 **`PROJECT_CREATE`** 与 **`VERSION_CREATE`**。
 4. 创建项目后，从项目页 URL 或 API 拿到 `project_id`（形如 `AABBCCDD`）。
 
@@ -37,7 +37,7 @@
 | Summary / Tagline | Makes Copper Golems sort your storage: persistent chest memory, gossip between golems, same-category deposits, post-deposit tidying, bounded give-up. |
 | Categories | Storage · Utility · Management（Hangar：Gameplay / Utility） |
 | Loaders | Paper only（依赖 Paper 专有事件，Spigot 不可用） |
-| Game versions | 1.21.9 – 26.3 |
+| Game versions | 26.3 |
 | Environment | Server only |
 | License | MIT |
 | Source | https://github.com/rayadesune/copper-golem-sort |
@@ -65,7 +65,7 @@ cat > /tmp/mr-data.json <<JSON
   "version_number": "${VER}",
   "changelog": "见 https://github.com/rayadesune/copper-golem-sort/blob/main/CHANGELOG.md",
   "dependencies": [],
-  "game_versions": ["1.21.9","1.21.10","1.21.11","26.1.2","26.2","26.3"],
+  "game_versions": ["26.3"],
   "version_type": "release",
   "loaders": ["paper"],
   "featured": false,
@@ -94,7 +94,7 @@ cat > /tmp/hg-data.json <<JSON
 {
   "version": "${VER}",
   "channel": "Release",
-  "platformDependencies": { "PAPER": ["1.21.9","1.21.10","1.21.11","26.1.2","26.2","26.3"] },
+  "platformDependencies": { "PAPER": ["26.3"] },
   "pluginDependencies": { "PAPER": [] },
   "description": "See https://github.com/rayadesune/copper-golem-sort/blob/main/CHANGELOG.md",
   "files": [ { "platforms": ["PAPER"] } ]

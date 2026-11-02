@@ -19,10 +19,9 @@ This plugin fixes that. It is a Paper plugin, server-side only, no client mod ne
 
 | Minecraft | Java |
 |---|---|
-| 1.21.9 · 1.21.10 · 1.21.11 | 21 |
-| 26.1.2 · 26.2 · 26.3 | 25 |
+| 26.3 | 25 |
 
-One jar covers the whole range: compiled against the 1.21.9 API, Java 21 bytecode. **Paper only** — the plugin hooks `ItemTransportingEntityValidateTargetEvent`, so Spigot and Bukkit will not load it. Not Folia-compatible.
+Compiled against the 26.3 API, Java 25 bytecode, **26.3 only** — same-category deposits need `ItemTransportingEntitySortEvent`, added in 26.3. **Paper only** — the plugin hooks `ItemTransportingEntitySortEvent` and `ItemTransportingEntityValidateTargetEvent`, so Spigot and Bukkit will not load it. Not Folia-compatible.
 
 ## Installation
 

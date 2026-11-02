@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.0
+
+Support raised to **Minecraft 26.3 only**. This is breaking: the jar is compiled against paper-api 26.3, targets Java 25 bytecode, and declares `api-version: '26.3'`, so older servers will refuse it.
+
+### Fixed
+
+- **Same-category deposits now actually happen.** The plugin only ever hooked `ItemTransportingEntityValidateTargetEvent`, which decides *which* container the golem walks to — not whether the item belongs there. Vanilla's insertion rule is still "empty, or already holds this exact item type", so a golem handed a wooden stair for a chest holding cherry planks was let through, walked over, failed to insert, walked back, and repeated. Nothing on the API could express the answer before 26.3. `ItemTransportingEntitySortEvent` (PaperMC/Paper#13811) is that decision point, and it is now handled: the category match is answered where vanilla asks, so the golem only accepts a container it can really deposit into. Debug lines from this path are tagged `(sort)` so they can be told apart from the target-choice ones.
+
+### Changed
+
+- **Supported versions: 26.3 only.** `supportedVersions` in `build.gradle.kts` is down to one entry; 1.21.9 – 26.2 are dropped rather than kept as a second, less correct code path.
+- **Java 25 required**, both to build and to run: paper-api 26.x is class file 69 and the plugin emits `--release 25`.
+- `api-version` in `paper-plugin.yml` is now `26.3`.
+- CI matrix, release verification loop and both READMEs follow the new range.
+
 ## 0.5.0
 
 The project is now maintained independently as **Copper Golem Sort**: upstream `Craftekture/Copper-Golem-Patch` has not been touched since 2026-08-04. No behaviour changed — this release is the rename, and it **is breaking** for anyone upgrading in place.

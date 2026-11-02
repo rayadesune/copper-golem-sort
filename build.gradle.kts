@@ -4,51 +4,49 @@ plugins {
 }
 
 group = "dev.cgp"
-version = "0.5.0"
+version = "0.6.0"
 
 // --- Supported Minecraft versions ----------------------------------------
-// 1.21.9 is the floor: it is the version that introduced Copper Golems, so
-// nothing below it has a golem to patch. All four APIs this plugin depends on
-// (CopperGolem, ItemTransportingEntityValidateTargetEvent, Brigadier Commands,
-// LifecycleEvents) are already present in 1.21.9.
+// 26.3 is the floor as of 0.6.0. The reason is not cosmetic: same-category
+// deposits cannot be done correctly before it. The only pre-26.3 hook,
+// ItemTransportingEntityValidateTargetEvent, runs while the golem is merely
+// choosing which container to walk to - letting an item past it makes the
+// golem walk over and come back empty-handed, because vanilla itself only
+// ever accepts a container that is empty or already holds the exact item.
+// 26.3 adds ItemTransportingEntitySortEvent (PaperMC/Paper#13811), which is
+// the actual "does this item belong in this container" decision, so it can
+// be answered once and honestly. Support for 1.21.9 - 26.2 is dropped rather
+// than kept as a second, worse code path.
 val supportedVersions = linkedMapOf(
-    "1.21.9" to "1.21.9-R0.1-SNAPSHOT",
-    "1.21.10" to "1.21.10-R0.1-SNAPSHOT",
-    "1.21.11" to "1.21.11-R0.1-SNAPSHOT",
-    "26.1.2" to "26.1.2.build.+",
-    "26.2" to "26.2.build.+",
     "26.3" to "26.3.build.+",
 )
 
 /**
- * Which version's API to compile against. Defaults to the floor: the published
- * artifact is built against 1.21.9 and works forward across the whole matrix.
- * The other values are for verification builds — "does the source still compile
- * against the recent API?".
+ * Which version's API to compile against. There is exactly one supported
+ * version now, so this only exists for the day a second entry comes back:
  *
- *   ./gradlew build -PmcVersion=26.2
+ *   ./gradlew build -PmcVersion=26.4
  */
 val mcVersion = providers.gradleProperty("mcVersion").getOrElse(supportedVersions.keys.first())
 val paperApiVersion = supportedVersions[mcVersion]
     ?: error("Unsupported Minecraft version: $mcVersion (expected one of ${supportedVersions.keys.joinToString(", ")})")
 
 /**
- * Which version runServer launches. Deliberately independent of the one above,
- * so we can check that the jar built against the floor really does load on a
- * recent server:
+ * Which version runServer launches. Kept independent of the compiled-against
+ * version so a jar can still be checked against a newer server without
+ * touching the build target:
  *
- *   ./gradlew runServer -PmcVersion=1.21.9 -PserverVersion=26.2
+ *   ./gradlew runServer -PmcVersion=26.3 -PserverVersion=26.4
  */
 val serverVersion = providers.gradleProperty("serverVersion").getOrElse(mcVersion)
 
 /** Java a given server version requires: 21 up to 1.21.11, 25 from 26.x on. */
 fun javaFor(version: String) = if (version.startsWith("1.")) 21 else 25
 
-// paper-api 26.x publishes Gradle metadata saying "requires Java 25", so it
-// cannot be consumed while targeting Java 21 bytecode. We therefore emit the
-// bytecode the compiled-against version demands. The default build (floor
-// 1.21.9) produces Java 21 bytecode, which loads on both Java 21 and Java 25
-// servers — that is the artifact to publish.
+// paper-api 26.x publishes Gradle metadata saying "requires Java 25", and its
+// classes are class file 69, so the toolchain is pinned to 25 regardless of
+// what the matrix says. The emitted bytecode follows the compiled-against
+// version: 26.3 therefore yields Java 25, which is what a 26.3 server runs.
 val bytecodeVersion = javaFor(mcVersion)
 
 java {
@@ -79,8 +77,9 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.processResources {
-    // api-version declares the supported floor, not the compiled-against
-    // version: Paper accepts a plugin whose api-version predates the server.
+    // api-version is the oldest server that may load the jar. Since 0.6.0 the
+    // floor and the build target are the same version, but the two stay
+    // separate inputs so they can diverge again without surprises.
     //
     // Without the two input declarations below, Gradle considers this task
     // up to date when only these values change and reuses the previously

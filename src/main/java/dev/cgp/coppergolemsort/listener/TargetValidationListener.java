@@ -9,8 +9,10 @@ import dev.cgp.coppergolemsort.memory.MemoryEntry;
 import dev.cgp.coppergolemsort.memory.UnplaceableRegistry;
 import dev.cgp.coppergolemsort.similar.SimilarItems;
 import dev.cgp.coppergolemsort.tidy.ContainerTidy;
+import io.papermc.paper.event.entity.ItemTransportingEntitySortEvent;
 import io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
@@ -19,6 +21,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Container;
 import org.bukkit.entity.CopperGolem;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
@@ -49,6 +52,11 @@ import java.util.function.Supplier;
  * see {@link #watchHoldTimeout()}, which is the single place that decision is
  * made. The item type is then marked "unplaceable" (shared via gossip) so the
  * golem leaves it alone until a spot opens up.
+ *
+ * <p>Two Paper events are handled, and the split matters: {@link #onValidate}
+ * decides which container the golem walks to, {@link #onSort} decides whether
+ * the held item actually belongs in it. Only the second one can authorise a
+ * same-category deposit; the first can merely steer the walk.
  */
 public final class TargetValidationListener implements Listener {
 
@@ -127,6 +135,78 @@ public final class TargetValidationListener implements Listener {
         }
 
         decide(event, golem, key, memory, now, hasEmptySlot(contents));
+    }
+
+    /**
+     * The same-category deposit decision, made where vanilla actually makes it.
+     *
+     * <p>{@link ItemTransportingEntityValidateTargetEvent} only picks *which*
+     * container the golem walks to; what happens on arrival is decided by the
+     * sort check, and before 26.3 no plugin could see it. So a golem allowed
+     * through with a chest that merely shared a category would walk over, fail
+     * to insert (a different item type cannot merge into an existing stack),
+     * and walk back - indefinitely. This event was added in 26.3
+     * (PaperMC/Paper#13811) and is the only place an answer can be given
+     * honestly, which is why the plugin now requires 26.3.
+     *
+     * <p>Narrow on purpose:
+     * <ul>
+     *   <li>Only copper golems, only when the feature is enabled.</li>
+     *   <li>Never for copper chests - those are the golem's own storage and
+     *       their take-out rules live in {@link #onValidate}.</li>
+     *   <li>Never when the container already holds the exact item type: the
+     *       vanilla rule already accepts that, so there is nothing to add.</li>
+     *   <li>Never into a full container when {@code require-empty-slot} is on,
+     *       for the same reason {@code matchesSimilarItem} checks it.</li>
+     * </ul>
+     * Everything else is left at {@link Event.Result#DEFAULT} so vanilla -
+     * and any other plugin - keeps its say.
+     */
+    @EventHandler
+    public void onSort(ItemTransportingEntitySortEvent event) {
+        if (!config.get().enabled()) {
+            return;
+        }
+        if (!(event.getEntity() instanceof CopperGolem)) {
+            return;
+        }
+        ItemStack held = event.getItemStack();
+        if (held == null || held.getType() == Material.AIR) {
+            return;
+        }
+        Inventory container = event.getContainerInventory();
+        if (isCopperChest(container)) {
+            return;
+        }
+        SimilarItems similarity = similarItems.get();
+        if (similarity == null || !similarity.enabled()) {
+            return;
+        }
+
+        ItemStack[] contents = container.getContents();
+        Set<Material> containerTypes = observeContents(contents).allItemTypes();
+        if (containerTypes.contains(held.getType())) {
+            // Vanilla already accepts an exact match; leave the decision alone.
+            return;
+        }
+        if (similarity.requireEmptySlot() && !hasEmptySlot(contents)) {
+            return;
+        }
+
+        Material heldType = held.getType();
+        String group = similarity.findSharedGroup(containerTypes, heldType);
+        if (group == null) {
+            return;
+        }
+        event.setResult(Event.Result.ALLOW);
+
+        if (similarity.debug()) {
+            Location loc = container.getLocation();
+            plugin.getLogger().info(String.format("[similar-items] %s -> %s 命中分组“%s”(sort)",
+                    heldType,
+                    loc == null ? "?" : String.format("(%d,%d,%d)", loc.getBlockX(), loc.getBlockY(), loc.getBlockZ()),
+                    group));
+        }
     }
 
     /** A same-category deposit can only land in a free slot (different item
@@ -462,6 +542,20 @@ public final class TargetValidationListener implements Listener {
 
     private boolean isCopperChest(Material material) {
         return material.name().endsWith("COPPER_CHEST");
+    }
+
+    /**
+     * Overload for the sort event, which hands over an {@link Inventory}
+     * rather than a block. {@code getLocation()} is null for inventories with
+     * no world position (crafting views, custom holders); those are never a
+     * copper chest as far as this listener is concerned.
+     */
+    private boolean isCopperChest(Inventory inventory) {
+        if (inventory == null) {
+            return false;
+        }
+        Location location = inventory.getLocation();
+        return location != null && isCopperChest(location.getBlock().getType());
     }
 
     private ObservedContents observeContents(ItemStack[] contents) {

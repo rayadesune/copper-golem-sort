@@ -31,18 +31,13 @@
 
 | Minecraft | 所需 Java | 状态 |
 |---|---|---|
-| 1.21.9 | 21 | ✅ |
-| 1.21.10 | 21 | ✅ |
-| 1.21.11 | 21 | ✅ |
-| 26.1.2 | 25 | ✅ |
-| 26.2 | 25 | ✅ |
 | 26.3 | 25 | ✅（已在 26.3 实机服务器验证） |
 
-**1.21.9 是绝对下限** —— 铜傀儡是这个版本才加入的，再往前没有可修补的对象。
+从 0.6.0 起**只支持 26.3 及以上**。下限上移的原因不是图省事：同类物品投放必须依赖 `ItemTransportingEntitySortEvent` —— 真正决定"手里这件东西属不属于这个箱子"的事件，它是 26.3 才加入的（[PaperMC/Paper#13811](https://github.com/PaperMC/Paper/pull/13811)）。在它之前，插件只能影响傀儡"选哪个箱子"，于是会出现手持木楼梯走过去、放不进去、再走回来的循环。
 
-**一个 jar 覆盖全矩阵**：以 1.21.9 的 API 编译、输出 Java 21 字节码，所以 Java 21 和 Java 25 的服务端都能加载。每次提交都会对矩阵中每个版本重新编译 + 跑单测（见 [CI](../../actions)）。
+jar 以 26.3 的 API 编译、输出 Java 25 字节码。每次提交都会对受支持版本重新编译 + 跑单测（见 [CI](../../actions)）。
 
-只支持 **Paper** —— 依赖 Paper 专有事件 `ItemTransportingEntityValidateTargetEvent`，Spigot / Bukkit 不可用。不支持 Folia。
+只支持 **Paper** —— 依赖 Paper 专有事件 `ItemTransportingEntitySortEvent` / `ItemTransportingEntityValidateTargetEvent`，Spigot / Bukkit 不可用。不支持 Folia。
 
 ## 安装
 
@@ -119,25 +114,19 @@ mv plugins/CopperGolemPatch/config.yml plugins/CopperGolemSort/config.yml
 ./gradlew build
 ```
 
-针对矩阵中其它版本编译并测试：
+针对矩阵中其它版本编译并测试（矩阵里重新有第二个条目之后）：
 
 ```bash
-./gradlew build -PmcVersion=26.2
+./gradlew build -PmcVersion=26.3
 ```
 
 启动测试服（世界目录隔离在 `run/<version>/`，永不提交）：
 
 ```bash
-./gradlew runServer -PserverVersion=26.2
+./gradlew runServer -PserverVersion=26.3
 ```
 
-验证 floor jar 确实能在较新服务端加载 —— 这两个属性是独立的：
-
-```bash
-./gradlew runServer -PmcVersion=1.21.9 -PserverVersion=26.2
-```
-
-> 世界不向后兼容：26.2 打开过的世界无法在 1.21.9 重新打开，所以每个版本一个 run 目录。
+> 世界不向后兼容：新版本打开过的世界无法在旧版本重新打开，所以每个版本一个 run 目录。
 
 ### 把新版本加进矩阵
 

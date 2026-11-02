@@ -19,11 +19,11 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
 
-      # Revalidate the whole matrix before publishing: a release must never go
-      # out while one of the supported versions no longer compiles.
+      # Revalidate the supported matrix before publishing: a release must never
+      # go out while one of the supported versions no longer compiles.
       - name: Verify the full matrix
         run: |
-          for v in 1.21.9 1.21.10 1.21.11 26.1.2 26.2 26.3; do
+          for v in 26.3; do
             echo "::group::MC $v"
             ./gradlew build -PmcVersion=$v || exit 1
             echo "::endgroup::"
@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.ref_name }}"
-          NOTES="Compatible with Minecraft 1.21.9 -> 26.3 (Paper). Requires Java 21 or newer."
+          NOTES="Compatible with Minecraft 26.3 (Paper). Requires Java 25 or newer."
           if gh release view "$TAG" >/dev/null 2>&1; then
             # The release may already have been created by hand (backfilling a
             # historical version, or re-tagging after a rename). Publishing a tag

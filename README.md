@@ -31,18 +31,13 @@ In vanilla, a copper golem re-evaluates every chest on every pass: it walks over
 
 | Minecraft | Java required | Status |
 |---|---|---|
-| 1.21.9 | 21 | ✅ |
-| 1.21.10 | 21 | ✅ |
-| 1.21.11 | 21 | ✅ |
-| 26.1.2 | 25 | ✅ |
-| 26.2 | 25 | ✅ |
 | 26.3 | 25 | ✅ (verified on a live 26.3 server) |
 
-**1.21.9 is the absolute floor**: it is the version that introduced Copper Golems, so there is nothing to patch before it.
+Support is **26.3 and newer only** as of 0.6.0. The floor moved because same-category deposits need `ItemTransportingEntitySortEvent`, the event that actually decides whether a held item belongs in a container; it was added in 26.3 ([PaperMC/Paper#13811](https://github.com/PaperMC/Paper/pull/13811)). Before it, a plugin could only nudge the golem's choice of container, which produced golems that walked over with a wooden stair, failed to insert, and walked back.
 
-A **single jar** covers the whole range. It is compiled against the 1.21.9 API and emits Java 21 bytecode, which makes it loadable on both Java 21 and Java 25 servers. Every version in the matrix is recompiled and tested on every commit ([CI](../../actions)).
+The jar is compiled against the 26.3 API and emits Java 25 bytecode. Every commit is recompiled and tested against the supported version ([CI](../../actions)).
 
-Requires **Paper** — the plugin depends on `ItemTransportingEntityValidateTargetEvent`, a Paper API, so Spigot and Bukkit will not work. Not Folia-compatible.
+Requires **Paper** — the plugin depends on `ItemTransportingEntitySortEvent` / `ItemTransportingEntityValidateTargetEvent`, Paper APIs, so Spigot and Bukkit will not work. Not Folia-compatible.
 
 ## Installation
 
@@ -117,25 +112,19 @@ The default build is the floor build, and it is the distributable artifact:
 ./gradlew build
 ```
 
-Compile and test against another version in the matrix:
+Compile and test against another version (once one is back in the matrix):
 
 ```bash
-./gradlew build -PmcVersion=26.2
+./gradlew build -PmcVersion=26.3
 ```
 
 Run a test server (world isolated in `run/<version>/`, never committed):
 
 ```bash
-./gradlew runServer -PserverVersion=26.2
+./gradlew runServer -PserverVersion=26.3
 ```
 
-Check that the floor jar really does load on a recent server — the two properties are independent:
-
-```bash
-./gradlew runServer -PmcVersion=1.21.9 -PserverVersion=26.2
-```
-
-> Worlds are not backward compatible: a world opened in 26.2 will not reopen in 1.21.9. Hence one run directory per version.
+> Worlds are not backward compatible: a world opened in a newer version will not reopen in an older one. Hence one run directory per version.
 
 ### Adding a version to the matrix
 
