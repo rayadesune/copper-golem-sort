@@ -55,6 +55,7 @@ Requires **Paper** — the plugin depends on `ItemTransportingEntitySortEvent` /
 | `/cgp reload` | Reloads `config.yml` at runtime. |
 | `/cgp info` | Memory state of the nearest golem (within 10 blocks): known chests, age, unplaceable items. |
 | `/cgp toggle` | Flips `enabled` and saves. |
+| `/cgp tidy [radius]` | Merges and re-sorts every container within `radius` blocks (default 32, max 64). Loaded chunks only, spread over ticks, open containers skipped. |
 
 ## Configuration
 

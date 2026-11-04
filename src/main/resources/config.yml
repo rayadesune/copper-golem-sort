@@ -493,14 +493,38 @@ similar-items:
     items:
     - minecraft:cooked_cod
     - minecraft:cooked_salmon
-  - name: 蔬菜
+  - name: 作物
     items:
+    - minecraft:wheat
     - minecraft:carrot
     - minecraft:potato
-    - minecraft:beetroot
     - minecraft:baked_potato
     - minecraft:poisonous_potato
     - minecraft:golden_carrot
+    - minecraft:beetroot
+    - minecraft:pumpkin
+    - minecraft:melon_slice
+    - minecraft:sweet_berries
+    - minecraft:glow_berries
+  - name: 种子
+    items:
+    - minecraft:wheat_seeds
+    - minecraft:beetroot_seeds
+    - minecraft:melon_seeds
+    - minecraft:pumpkin_seeds
+    - minecraft:torchflower_seeds
+    - minecraft:pitcher_pod
+  - name: 种植材料
+    items:
+    - minecraft:sugar_cane
+    - minecraft:bamboo
+    - minecraft:kelp
+    - minecraft:dried_kelp
+    - minecraft:cactus
+    - minecraft:cactus_flower
+    - minecraft:cocoa_beans
+    - minecraft:nether_wart
+    - minecraft:sea_pickle
 
 # =============================================================
 # 以下 9 组可选，默认注释掉。**都不是 SCG 的分组**，是我扫 26.3 原版

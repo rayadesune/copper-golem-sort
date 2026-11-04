@@ -300,6 +300,14 @@ public final class TargetValidationListener implements Listener {
                 // happens to be closest - that is what made one chest
                 // accumulate everything the other one could not get rid of.
                 session.origin = key;
+
+                // The golem has to walk here and stop anyway, so re-order the
+                // chest while it is busy: fragments get recombined and items
+                // with a known category float ahead of the ones with nowhere to
+                // go. That is exactly the order the next pickup wants, and it
+                // is the only chance a copper chest gets to be tidied at all -
+                // golems never deposit into one.
+                tidy.get().schedule(event.getBlock());
             }
         }
     }

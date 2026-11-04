@@ -2,7 +2,9 @@ package dev.cgp.coppergolemsort.tidy;
 
 import dev.cgp.coppergolemsort.similar.SimilarItems;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
@@ -10,6 +12,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,6 +20,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -30,9 +34,11 @@ import java.util.logging.Logger;
  * the only place this can be corrected is after the fact: let vanilla deposit,
  * then consolidate.
  *
- * <p>Deliberately conservative: only containers a golem actually targeted are
- * ever touched, and a container someone is currently viewing is skipped so a
- * live drag cannot be raced.
+ * <p>Deliberately conservative: only containers a golem actually touched are
+ * ever tidied automatically, and a container someone is currently viewing is
+ * skipped so a live drag cannot be raced. Containers the golems never visit
+ * are only reached through the explicit {@code /cgp tidy} sweep, which is what
+ * {@link #tidyArea} is for.
  */
 public final class ContainerTidy {
 
@@ -103,10 +109,10 @@ public final class ContainerTidy {
     }
 
     /**
-     * Queues a tidy pass for a container the golem just decided to deposit
-     * into. Repeated calls for the same block within the delay window collapse
-     * into one task, which matters because a golem re-validates a chest on
-     * every pass.
+     * Queues a tidy pass for a container a golem just decided to deposit
+     * into, or just picked up from. Repeated calls for the same block within
+     * the delay window collapse into one task, which matters because a golem
+     * re-validates a chest on every pass.
      */
     public void schedule(Block block) {
         if (!enabled || plugin == null || block == null) {
@@ -135,18 +141,20 @@ public final class ContainerTidy {
         }, delayTicks);
     }
 
-    private void tidy(Block block) {
+    /** @return true when at least one slot was rewritten (i.e. the container
+     * was actually untidy), false when it was already in shape or skipped. */
+    private boolean tidy(Block block) {
         if (!enabled || !isLoaded(block)) {
-            return;
+            return false;
         }
         BlockState state = block.getState();
         if (!(state instanceof Container container)) {
-            return;
+            return false;
         }
         Inventory inventory = container.getInventory();
         if (skipViewed && !inventory.getViewers().isEmpty()) {
             note("跳过 " + keyOf(block) + "：有人正在查看");
-            return;
+            return false;
         }
 
         ItemStack[] before = inventory.getContents();
@@ -159,7 +167,7 @@ public final class ContainerTidy {
             items.add(stack.clone());
         }
         if (items.size() < 2) {
-            return;
+            return false;
         }
 
         List<ItemStack> next = merge ? merged(items) : items;
@@ -181,6 +189,80 @@ public final class ContainerTidy {
             note("整理 " + keyOf(block) + "：" + items.size() + " 堆 → " + next.size()
                     + " 堆（腾出 " + freed + " 格），写入 " + changed + " 格");
         }
+        return changed > 0;
+    }
+
+    /**
+     * Tidies every container within {@code radius} blocks of {@code center}.
+     *
+     * <p>Only already-loaded chunks are visited: pulling chunks from disk to
+     * rearrange chests nobody is standing next to would cost far more than the
+     * cleanliness is worth, and a golem cannot reach those chunks either.
+     *
+     * <p>Spread over several ticks on purpose. A base with a hundred chests is
+     * a few thousand slot writes, which is fine in aggregate and awful in a
+     * single tick on a 2 GB server.
+     *
+     * @param onDone receives the number of containers actually rewritten.
+     */
+    public void tidyArea(Location center, int radius, IntConsumer onDone) {
+        if (!enabled || plugin == null || center == null || center.getWorld() == null) {
+            onDone.accept(0);
+            return;
+        }
+        final int r = Math.max(1, Math.min(radius, 64));
+        final World world = center.getWorld();
+        final double rSquared = (double) r * r;
+
+        List<Block> targets = new ArrayList<>();
+        int minChunkX = (center.getBlockX() - r) >> 4;
+        int maxChunkX = (center.getBlockX() + r) >> 4;
+        int minChunkZ = (center.getBlockZ() - r) >> 4;
+        int maxChunkZ = (center.getBlockZ() + r) >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                    continue;
+                }
+                for (BlockState state : world.getChunkAt(chunkX, chunkZ).getTileEntities()) {
+                    if (!(state instanceof Container)) {
+                        continue;
+                    }
+                    Block block = state.getBlock();
+                    Location at = block.getLocation();
+                    if (at.getWorld() != world || at.distanceSquared(center) > rSquared) {
+                        continue;
+                    }
+                    targets.add(block);
+                }
+            }
+        }
+
+        if (targets.isEmpty()) {
+            onDone.accept(0);
+            return;
+        }
+
+        final int perTick = 6;
+        new BukkitRunnable() {
+            private int index;
+            private int touched;
+
+            @Override
+            public void run() {
+                int processed = 0;
+                while (index < targets.size() && processed < perTick) {
+                    if (tidy(targets.get(index++))) {
+                        touched++;
+                    }
+                    processed++;
+                }
+                if (index >= targets.size()) {
+                    cancel();
+                    onDone.accept(touched);
+                }
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
     }
 
     /**

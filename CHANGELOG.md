@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+
+### Added
+
+- **`/cgp tidy [radius]`** — one-shot sweep that merges and re-sorts every container within `radius` blocks (default 32, capped at 64). Only loaded chunks are visited, and the work is spread over ticks (6 containers per tick) so a base with a hundred chests does not stall the server. Containers someone has open are skipped. This exists because the automatic pass can only reach chests a golem walks up to — the ones it never touches are exactly the ones that pile up.
+- **Crop categories.** The old single `蔬菜` group only covered carrot/potato/beetroot, so wheat had no destination anywhere and could never be moved. It is replaced by three groups: `作物` (wheat, carrot, potato, baked/poisonous/golden potato variants, beetroot, pumpkin, melon slice, berries), `种子` (all plantable seeds), `种植材料` (sugar cane, bamboo, kelp, cactus, cocoa beans, nether wart, sea pickle).
+
+### Changed
+
+- **Copper chests get tidied too.** The golem has to walk to one and stop anyway, so a tidy pass is now queued on pickup as well as on deposit. Previously only destination chests were ever touched, which is why a copper chest could sit in fragment order forever.
+
 ## 0.7.0
 
 ### Fixed

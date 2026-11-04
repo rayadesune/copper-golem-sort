@@ -48,7 +48,8 @@ public final class CopperGolemSortPlugin extends JavaPlugin {
 
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
-            commands.register("cgp", "Copper Golem Sort admin commands", new CgpCommand(this, cache));
+            commands.register("cgp", "Copper Golem Sort admin commands",
+                    new CgpCommand(this, cache, this::getTidy));
         });
 
         scheduleGossipTask();
@@ -83,6 +84,11 @@ public final class CopperGolemSortPlugin extends JavaPlugin {
 
     public SimilarItems getSimilarItems() {
         return similarItems;
+    }
+
+    /** Read through a getter so a reload swaps the instance under the command. */
+    public ContainerTidy getTidy() {
+        return tidy;
     }
 
     public void reloadPluginConfig() {
