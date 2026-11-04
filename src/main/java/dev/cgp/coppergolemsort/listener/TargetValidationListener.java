@@ -108,24 +108,28 @@ public final class TargetValidationListener implements Listener {
         }
         ItemStack[] contents = container.getInventory().getContents();
 
-        if (isCopperChest(block.getType())) {
+        ChestKey key = ChestKey.of(block);
+        ChestMemory memory = cache.getMemory(golem);
+        boolean freeSlot = hasEmptySlot(contents);
+        boolean copperChest = isCopperChest(block.getType());
+
+        if (copperChest) {
             // Vanilla only ever picks up whatever occupies the first
-            // non-empty slot. If that happens to be an item we've already
-            // learned has nowhere to go, every other (possibly perfectly
-            // sortable) item behind it would be stuck forever - so bump the
-            // blocked stack out of the way for the first sortable one we find.
-            UnplaceableRegistry unplaceableForReorder = cache.getUnplaceable(golem);
-            promoteSortableItem(container, contents, unplaceableForReorder, now);
+            // non-empty slot. If that happens to be an item with nowhere to
+            // go, every other (possibly perfectly sortable) item behind it is
+            // stuck forever - so bump the blocked stack out of the way for the
+            // first item we do know a destination for.
+            promoteDeliverableItem(container, contents, memory, key, cache.getUnplaceable(golem), now);
+            freeSlot = hasEmptySlot(contents);
         }
 
         ObservedContents observed = observeContents(contents);
 
-        ChestKey key = ChestKey.of(block);
-        ChestMemory memory = cache.getMemory(golem);
-        memory.recordObservation(key, observed.firstItemType(), observed.allItemTypes(), now, config.get().maxEntriesPerGolem());
+        memory.recordObservation(key, observed.firstItemType(), observed.allItemTypes(), freeSlot, copperChest, now,
+                config.get().maxEntriesPerGolem());
         cache.markMemoryDirty(golem);
 
-        if (observed.firstItemType() == Material.AIR && !isCopperChest(block.getType())) {
+        if (observed.firstItemType() == Material.AIR && !copperChest) {
             // A previously-unviable item could now fit here - give every
             // give-up mark a fresh chance instead of waiting out its TTL.
             UnplaceableRegistry unplaceable = cache.getUnplaceable(golem);
@@ -134,7 +138,7 @@ public final class TargetValidationListener implements Listener {
             }
         }
 
-        decide(event, golem, key, memory, now, hasEmptySlot(contents));
+        decide(event, golem, key, memory, now, freeSlot);
     }
 
     /**
@@ -273,8 +277,30 @@ public final class TargetValidationListener implements Listener {
                 event.setAllowed(false);
                 return;
             }
+            // The golem can only carry what the first non-empty slot holds, so
+            // that one stack decides whether this chest is worth a trip at all.
+            // Denial stays tied to the give-up registry - i.e. to a trip that
+            // actually just failed - because refusing on memory alone can
+            // deadlock: once nothing is picked up, no destination is ever
+            // validated again and the memory can never learn otherwise.
             UnplaceableRegistry unplaceable = cache.getUnplaceable(golem);
-            event.setAllowed(!isUnplaceable(unplaceable, entry.firstItemType(), now));
+            Material frontType = entry.firstItemType();
+            boolean blocked = isUnplaceable(unplaceable, frontType, now);
+            event.setAllowed(!blocked);
+            if (blocked) {
+                SimilarItems readability = similarItems.get();
+                if (readability != null && readability.debug()) {
+                    Block head = event.getBlock();
+                    plugin.getLogger().info(String.format("[skip] %s 刚失败过，本口铜箱暂不取 (%d,%d,%d)",
+                            frontType, head.getX(), head.getY(), head.getZ()));
+                }
+            } else {
+                // Remember where this carry came from: a give-up should put the
+                // item back where it was, not into whichever copper chest
+                // happens to be closest - that is what made one chest
+                // accumulate everything the other one could not get rid of.
+                session.origin = key;
+            }
         }
     }
 
@@ -334,7 +360,8 @@ public final class TargetValidationListener implements Listener {
         // candidate is dropped at the golem's feet - loudly, because a dropped
         // item despawns after five minutes.
         ItemStack remaining = currentlyHeld.clone();
-        for (Container target : stowCandidates(golem)) {
+        CarrySession carried = sessions.get(golem.getUniqueId());
+        for (Container target : stowCandidates(golem, carried == null ? null : carried.origin)) {
             if (isEmpty(remaining)) {
                 break;
             }
@@ -431,9 +458,12 @@ public final class TargetValidationListener implements Listener {
     }
 
     /**
-     * Containers to try when a golem gives up, best first: copper chests (the
-     * golem's own storage, so the item goes back where it came from and player
-     * sorted chests stay untouched), then everything else by distance.
+     * Containers to try when a golem gives up, best first: the copper chest the
+     * carry came from, then the golem's other storage by distance, then
+     * everything else. Putting the item back where it was picked up is what
+     * keeps one chest from silently collecting every item the other one could
+     * not deliver - a migration that is invisible in game and reads as "this
+     * chest is abandoned so it piles up".
      *
      * <p>Only chests, trapped chests, copper chests and barrels qualify.
      * Furnaces, hoppers, dispensers, brewing stands and shulker boxes are
@@ -448,7 +478,7 @@ public final class TargetValidationListener implements Listener {
      * BlockState taken straight out of that list is not guaranteed to be a
      * placed state, and writing into a detached copy would make the item vanish.
      */
-    private List<Container> stowCandidates(CopperGolem golem) {
+    private List<Container> stowCandidates(CopperGolem golem, ChestKey origin) {
         World world = golem.getWorld();
         int centerX = golem.getLocation().getBlockX() >> 4;
         int centerZ = golem.getLocation().getBlockZ() >> 4;
@@ -474,10 +504,23 @@ public final class TargetValidationListener implements Listener {
                 }
             }
         }
+        // Origin first, then the golem's own storage by distance, then anything
+        // else. Handing the item back where it came from is what stops one
+        // copper chest from collecting every item the other one could not
+        // deliver - that migration is invisible in game, but it is exactly what
+        // makes a chest look "abandoned while piling up".
         found.sort(Comparator
-                .comparingInt((Container c) -> isCopperChest(c.getType()) ? 0 : 1)
+                .comparingInt((Container c) -> isOrigin(c, origin) ? 0 : (isCopperChest(c.getType()) ? 1 : 2))
                 .thenComparingDouble(c -> c.getLocation().distanceSquared(golem.getLocation())));
         return found;
+    }
+
+    private static boolean isOrigin(Container container, ChestKey origin) {
+        return origin != null
+                && origin.worldId().equals(container.getWorld().getUID())
+                && origin.x() == container.getX()
+                && origin.y() == container.getY()
+                && origin.z() == container.getZ();
     }
 
     private static String positionKey(Container container) {
@@ -488,41 +531,45 @@ public final class TargetValidationListener implements Listener {
         return stack == null || stack.getType() == Material.AIR || stack.getAmount() <= 0;
     }
 
-    /** Swaps the first slot's stack with the first later stack of a different,
-     * not-currently-unplaceable type, so vanilla's "grab the first item"
-     * pickup naturally lands on something the golem can actually deliver.
-     * Mutates contents in lockstep with the live inventory so callers don't
-     * need to re-fetch it to see the post-swap state. */
-    private void promoteSortableItem(Container container, ItemStack[] contents, UnplaceableRegistry unplaceable, long now) {
+    /**
+     * Brings the first *deliverable* stack to the front of a copper chest.
+     *
+     * <p>This is the whole fix for "one copper chest never gets emptied": the
+     * golem can only carry the first non-empty slot, so a single item with no
+     * destination blocks every sortable item behind it, and the chest looks
+     * abandoned while it piles up.
+     *
+     * <p>The old gate was the give-up registry, which only lives for
+     * {@code unplaceable-ttl-seconds} (20s by default). Between two failures
+     * the item looked fine, so promotion almost never ran. Deliverability is
+     * now answered from the chest memory instead - it stays true for as long as
+     * no chest is known to accept the item - and the registry is kept as a
+     * second, immediate signal.
+     */
+    private void promoteDeliverableItem(Container container, ItemStack[] contents, ChestMemory memory,
+                                        ChestKey self, UnplaceableRegistry unplaceable, long now) {
         // Swapping two slots under an open window desyncs the client's view of
         // the container - the player can then pick up a stack that isn't there
         // or drop one into the wrong slot. Never reorder a container someone is
-        // looking at; leaving the blocked stack in front just means this golem
-        // sits idle for one more cycle, which the give-up TTL already covers.
+        // looking at; the chest simply keeps its old order until it is closed.
         if (!container.getInventory().getViewers().isEmpty()) {
             return;
         }
-        int firstIndex = -1;
-        for (int i = 0; i < contents.length; i++) {
-            if (contents[i] != null && contents[i].getType() != Material.AIR) {
-                firstIndex = i;
-                break;
-            }
-        }
-        if (firstIndex == -1) {
+        int firstIndex = firstNonEmptyIndex(contents);
+        if (firstIndex < 0) {
             return;
         }
-        Material firstType = contents[firstIndex].getType();
-        if (!isUnplaceable(unplaceable, firstType, now)) {
+        Material frontType = contents[firstIndex].getType();
+        if (!isBlockedElsewhere(memory, self, unplaceable, frontType, now)) {
             return;
         }
 
         for (int i = firstIndex + 1; i < contents.length; i++) {
             ItemStack candidate = contents[i];
-            if (candidate == null || candidate.getType() == Material.AIR || candidate.getType() == firstType) {
+            if (candidate == null || candidate.getType() == Material.AIR || candidate.getType() == frontType) {
                 continue;
             }
-            if (isUnplaceable(unplaceable, candidate.getType(), now)) {
+            if (isBlockedElsewhere(memory, self, unplaceable, candidate.getType(), now)) {
                 continue;
             }
             ItemStack blocked = contents[firstIndex];
@@ -530,8 +577,87 @@ public final class TargetValidationListener implements Listener {
             container.getInventory().setItem(i, blocked);
             contents[firstIndex] = candidate;
             contents[i] = blocked;
+
+            SimilarItems readability = similarItems.get();
+            if (readability != null && readability.debug()) {
+                Location loc = container.getLocation();
+                plugin.getLogger().info(String.format("[pickup] %s 无处可放，把 %s 顶到前排 (%d,%d,%d)",
+                        frontType, candidate.getType(),
+                        loc.getBlockX(), loc.getBlockY(), loc.getBlockZ()));
+            }
             return;
         }
+    }
+
+    private static int firstNonEmptyIndex(ItemStack[] contents) {
+        for (int i = 0; i < contents.length; i++) {
+            if (contents[i] != null && contents[i].getType() != Material.AIR) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * "Do we know of any chest that would take this?" - the inverse of what the
+     * deposit rule accepts, asked against remembered contents so it can be
+     * answered before the golem walks anywhere.
+     *
+     * <p>Exact matches count even in a full chest (an existing stack can still
+     * grow), which mirrors vanilla's own leaving-items rule.
+     */
+    private boolean isDeliverable(ChestMemory memory, ChestKey self, Material type) {
+        SimilarItems similarity = similarItems.get();
+        for (MemoryEntry entry : memory.asMap().values()) {
+            if (entry.key().equals(self) || !entry.isDepositTarget()) {
+                // A copper chest is the golem's own storage; it never receives a
+                // deposit, and letting one vouch for the other would make every
+                // item they share look deliverable forever.
+                continue;
+            }
+            if (entry.contains(type)) {
+                return true;
+            }
+            if (!entry.hasFreeSlot()) {
+                continue;
+            }
+            if (entry.isEmpty()) {
+                return true;
+            }
+            if (similarity != null && similarity.enabled()
+                    && similarity.findSharedGroup(entry.allItemTypes(), type) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when this item type should not be carried: it failed recently, or
+     * nothing in the known chests accepts it.
+     *
+     * <p>The second half only fires once the golem has actually looked at some
+     * other chest - with an empty or single-entry memory "no destination known"
+     * is ignorance, not evidence, and reordering on ignorance would shuffle a
+     * player's chest for nothing.
+     */
+    private boolean isBlockedElsewhere(ChestMemory memory, ChestKey self, UnplaceableRegistry unplaceable,
+                                       Material type, long now) {
+        if (isDeliverable(memory, self, type)) {
+            return false;
+        }
+        return isUnplaceable(unplaceable, type, now) || knowsAnyDepositTarget(memory, self);
+    }
+
+    /** Has the golem actually looked at a container that could receive items?
+     * Only then does "no destination known" mean anything. */
+    private boolean knowsAnyDepositTarget(ChestMemory memory, ChestKey self) {
+        for (MemoryEntry entry : memory.asMap().values()) {
+            if (!entry.key().equals(self) && entry.isDepositTarget()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isUnplaceable(UnplaceableRegistry unplaceable, Material type, long now) {
@@ -576,15 +702,18 @@ public final class TargetValidationListener implements Listener {
     }
 
     /**
-     * Per-golem carry state, deliberately three fields wide. What the give-up
+     * Per-golem carry state, deliberately four fields wide. What the give-up
      * watchdog needs is exactly: what is in hand, since when it has been there
-     * without a single chest being evaluated, and whether any chest has
-     * accepted it. Tracking individual rejections adds nothing the clock does
-     * not already cover.
+     * without a single chest being evaluated, whether any chest has accepted
+     * it, and which chest it was taken from. Tracking individual rejections
+     * adds nothing the clock does not already cover.
      */
     private static final class CarrySession {
         private Material heldItem;
         private long heldSinceEpochMillis;
         private boolean hasValidTarget;
+        /** Copper chest this carry was picked from - the give-up puts it back
+         * there instead of into whichever one happens to be nearest. */
+        private ChestKey origin;
     }
 }

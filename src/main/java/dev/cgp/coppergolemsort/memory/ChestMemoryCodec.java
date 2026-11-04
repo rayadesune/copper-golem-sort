@@ -23,6 +23,8 @@ public final class ChestMemoryCodec {
     private static final NamespacedKey ITEM_KEY = new NamespacedKey(NAMESPACE, "item");
     private static final NamespacedKey ALL_ITEMS_KEY = new NamespacedKey(NAMESPACE, "all_items");
     private static final NamespacedKey SEEN_AT_KEY = new NamespacedKey(NAMESPACE, "seen_at");
+    private static final NamespacedKey FREE_SLOT_KEY = new NamespacedKey(NAMESPACE, "free_slot");
+    private static final NamespacedKey COPPER_CHEST_KEY = new NamespacedKey(NAMESPACE, "copper_chest");
     private static final NamespacedKey MARKED_AT_KEY = new NamespacedKey(NAMESPACE, "marked_at");
 
     private final NamespacedKey memoryListKey;
@@ -47,6 +49,8 @@ public final class ChestMemoryCodec {
             List<String> allItemNames = entry.allItemTypes().stream().map(Material::name).toList();
             entryContainer.set(ALL_ITEMS_KEY, PersistentDataType.LIST.strings(), allItemNames);
             entryContainer.set(SEEN_AT_KEY, PersistentDataType.LONG, entry.lastSeenEpochMillis());
+            entryContainer.set(FREE_SLOT_KEY, PersistentDataType.BYTE, (byte) (entry.hasFreeSlot() ? 1 : 0));
+            entryContainer.set(COPPER_CHEST_KEY, PersistentDataType.BYTE, (byte) (entry.copperChest() ? 1 : 0));
             list.add(entryContainer);
         }
         golemPdc.set(memoryListKey, PersistentDataType.LIST.dataContainers(), list);
@@ -116,7 +120,14 @@ public final class ChestMemoryCodec {
             allItemTypes.add(firstItemType);
         }
         ChestKey key = new ChestKey(UUID.fromString(worldId), x, y, z);
-        return new MemoryEntry(key, firstItemType, allItemTypes, seenAt);
+        // Entries written by 0.6.x have no free_slot / copper_chest tags; default
+        // to "has room, ordinary chest" so an upgraded server behaves exactly as
+        // it did until the golem next observes that chest.
+        Byte freeSlot = entryContainer.get(FREE_SLOT_KEY, PersistentDataType.BYTE);
+        Byte copperChest = entryContainer.get(COPPER_CHEST_KEY, PersistentDataType.BYTE);
+        return new MemoryEntry(key, firstItemType, allItemTypes,
+                freeSlot == null || freeSlot != 0,
+                copperChest != null && copperChest != 0, seenAt);
     }
 
     private UnplaceableEntry decodeUnplaceableEntry(PersistentDataContainer entryContainer) {

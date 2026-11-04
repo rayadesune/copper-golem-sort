@@ -22,7 +22,8 @@ In vanilla, a copper golem re-evaluates every chest on every pass: it walks over
 | **Same-category deposits** | A chest holding any wool colour accepts any other wool colour, a chest of oak planks accepts spruce — one destination chest per *category* instead of one per item type. 76 groups cover 986 items out of the box. |
 | **Post-deposit tidying** | 2 s after a deposit the chest is compacted: partial stacks of the same item merged into full ones, then stacks ordered by category. Chests you have open are skipped. |
 | **Bounded stall breaker** | An item nothing accepts goes back to a copper chest, or a nearby chest/barrel, or is dropped at the golem's feet (with a log line). Soft deadline 30 s, hard cap 120 s. |
-| **Deprioritising** | If the first slot of a copper chest holds an unplaceable item, it is swapped with the first sortable one — otherwise it would block everything behind it. |
+| **Deprioritising** | Only the first non-empty slot of a copper chest is ever picked up, so one item with nowhere to go blocks everything behind it. It is now swapped back for the first item that *does* have a destination, judged from remembered chest contents rather than a short-lived failure mark. A chest whose entire contents have no destination is refused instead of walked to. |
+| **Carry goes back where it came from** | A give-up returns the stack to the copper chest it was taken from, not the nearest one — otherwise one chest silently collects everything the other could not deliver. |
 
 ![Memory](Images/MEMORY.png)
 ![Gossip](Images/GOSSIP.png)

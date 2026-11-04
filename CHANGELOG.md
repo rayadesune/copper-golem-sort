@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0
+
+### Fixed
+
+- **A copper chest is no longer disabled by one undeliverable item at its front.** Vanilla only ever picks up the first non-empty slot, so a single stack with no destination blocked everything behind it: the golem kept carrying that one stack, failing, and giving up, while the chest filled up and looked abandoned. The reorder that was supposed to fix this was gated on the give-up registry, which lives for `unplaceable-ttl-seconds` (20s). Between two failures the item looked fine, so promotion almost never ran. Deliverability is now answered from chest memory — "does any remembered chest accept this type right now" — which stays true until a destination actually appears, with the registry kept as an immediate second signal.
+- **An item that could not be delivered no longer migrates into another copper chest.** Give-up used to hand the stack to whichever copper chest was nearest, so one chest silently collected everything the other one could not get rid of. The chest the carry was picked from is now tried first.
+
+### Changed
+
+- Chest memory records whether a container still had a free slot when it was last seen (`free_slot` on the golem's persistent data). Entries written by 0.6.x read back as "has room", so an in-place upgrade behaves exactly as before until the golem next observes that chest.
+- A copper chest whose front stack just failed is still refused for the next `unplaceable-ttl-seconds`, so the golem does not walk over for nothing. Deliberately *not* extended to "no known destination": refusing on memory alone deadlocks, because a refused chest is never picked up from, so no destination is ever validated again and the memory can never correct itself.
+- Debug (`similar-items.debug`) also logs reorders: `[pickup] <type> 无处可放，把 <type> 顶到前排 (x,y,z)`.
+
 ## 0.6.0
 
 Support raised to **Minecraft 26.3 only**. This is breaking: the jar is compiled against paper-api 26.3, targets Java 25 bytecode, and declares `api-version: '26.3'`, so older servers will refuse it.

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.cgp"
-version = "0.6.0"
+version = "0.7.0"
 
 // --- Supported Minecraft versions ----------------------------------------
 // 26.3 is the floor as of 0.6.0. The reason is not cosmetic: same-category

@@ -20,7 +20,13 @@ public final class ChestMemory {
 
     public void recordObservation(ChestKey key, Material firstItemType, Set<Material> allItemTypes,
                                    long nowEpochMillis, int maxEntries) {
-        entries.put(key, new MemoryEntry(key, firstItemType, allItemTypes, nowEpochMillis));
+        recordObservation(key, firstItemType, allItemTypes, true, false, nowEpochMillis, maxEntries);
+    }
+
+    public void recordObservation(ChestKey key, Material firstItemType, Set<Material> allItemTypes,
+                                   boolean hasFreeSlot, boolean copperChest,
+                                   long nowEpochMillis, int maxEntries) {
+        entries.put(key, new MemoryEntry(key, firstItemType, allItemTypes, hasFreeSlot, copperChest, nowEpochMillis));
         evictIfOverCapacity(maxEntries);
     }
 
